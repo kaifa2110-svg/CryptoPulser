@@ -564,83 +564,195 @@ async function startServer() {
     }
   });
 
-  app.post('/api/ai/chat', async (req, res) => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({
-        error: 'Gemini API key is not configured in Settings > Secrets.',
-      });
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  interface GeminiTurn {
+    role: 'user' | 'model';
+    parts: Array<{ text: string }>;
+  }
+
+  function normalizeConversationHistory(
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+    fallbackUserText: string
+  ): GeminiTurn[] {
+    const mapped: GeminiTurn[] = [];
+
+    for (const m of messages.slice(-36)) {
+      const text = typeof m.content === 'string' ? m.content.trim() : '';
+      if (!text) continue;
+      const role: 'user' | 'model' = m.role === 'assistant' ? 'model' : 'user';
+
+      // Gemini generateContent requires conversation history to begin with a 'user' turn
+      if (mapped.length === 0 && role === 'model') {
+        continue;
+      }
+
+      const prev = mapped[mapped.length - 1];
+      if (prev && prev.role === role) {
+        prev.parts[0].text = `${prev.parts[0].text}\n\n${text}`;
+      } else {
+        mapped.push({ role, parts: [{ text }] });
+      }
     }
 
-    const { messages, marketContext, copilotMode } = req.body as {
+    if (mapped.length === 0 && fallbackUserText.trim()) {
+      mapped.push({ role: 'user', parts: [{ text: fallbackUserText.trim() }] });
+    }
+
+    return mapped;
+  }
+
+  app.post('/api/ai/chat', async (req, res) => {
+    const { userPrompt, messages, marketContext, copilotMode } = req.body as {
+      userPrompt?: string;
       messages?: Array<{ role: 'user' | 'assistant'; content: string }>;
       marketContext?: Record<string, unknown>;
       copilotMode?: string;
     };
 
     if (!Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({ error: 'Messages array is required.' });
+      return res.status(400).json({
+        errorCode: 'BAD_REQUEST',
+        error: 'Messages array is required.',
+      });
     }
 
-    try {
-      const ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build',
-          },
-        },
+    const lastUserMessage =
+      (userPrompt && userPrompt.trim()) ||
+      [...messages].reverse().find((m) => m.role === 'user')?.content?.trim() ||
+      '';
+
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+      return res.status(503).json({
+        errorCode: 'MISSING_API_KEY',
+        error:
+          'Gemini API key is not configured. Add GEMINI_API_KEY in AI Studio Settings > Secrets to enable live conversational AI.',
       });
+    }
 
-      const modeInstructions: Record<string, string> = {
-        trade_signal:
-          'Active Mode: AI Trade Signal & Entry/Exit Copilot. Provide structured technical setups grounded in live prices and 24h Low/High ranges: Entry Zone, Support/Resistance levels, Invalidation/Stop level, Target Zones, and Risk-Reward Ratio.',
-        whale_anomaly:
-          'Active Mode: AI Whale & Bubble Anomaly Detector. Summarize whale exchange inflows vs cold storage outflows, smart money swaps, and holder concentration / centralization risk from the live telemetry context.',
-        portfolio_advisor:
-          'Active Mode: AI Portfolio Risk & Rebalance Advisor. Evaluate the user watchlist/assets, assign an analytical diversification & volatility Health Score (0-100), and suggest balanced allocation weights.',
-        sentiment_digest:
-          'Active Mode: AI Market Sentiment & News Digest. Deliver an executive synthesis of Fear & Greed, Altcoin Season Index, BTC/ETH dominance, and key market headlines.',
-      };
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
 
-      const activeModeNote =
-        copilotMode && modeInstructions[copilotMode] ? `\n${modeInstructions[copilotMode]}\n` : '';
+    const modeInstructions: Record<string, string> = {
+      basic:
+        'Active Mode: Conversational Market & Crypto Research Q&A. Answer naturally and thoroughly in a helpful multi-turn dialogue.',
+      trade_signal:
+        'Active Mode: AI Trade Signal & Entry/Exit Copilot. Provide structured technical setups grounded in live prices and 24h Low/High ranges when live data is available (Entry Zone, Support/Resistance, Invalidation/Stop, Target Zones, Risk-Reward Ratio), while naturally answering follow-ups.',
+      whale_anomaly:
+        'Active Mode: AI Whale & Bubble Anomaly Detector. Analyze whale exchange inflows vs cold storage outflows, smart money swaps, and holder concentration / centralization risk, and answer follow-up questions naturally.',
+      portfolio_advisor:
+        'Active Mode: AI Portfolio Risk & Rebalance Advisor. Evaluate the user watchlist or asked assets, provide a diversification & volatility Health Score (0-100), and suggest balanced allocation weights.',
+      sentiment_digest:
+        'Active Mode: AI Market Sentiment & News Digest. Synthesize Fear & Greed, Altcoin Season Index, BTC/ETH dominance, macro mood, and headlines in clear conversational detail.',
+    };
 
-      const systemInstruction = `You are Crypto Pulser AI, an analytical cryptocurrency market and portfolio assistant embedded inside the CryptoPulser.com terminal.
-You have access to the user's live dashboard context below (real-time prices, selected currency, FX rate, global market cap, BTC dominance, Altcoin Season index, watchlist, whale signals, and top movers).
+    const activeModeNote =
+      copilotMode && modeInstructions[copilotMode]
+        ? `\n${modeInstructions[copilotMode]}\n`
+        : `\n${modeInstructions.basic}\n`;
+
+    const systemInstruction = `You are Crypto Pulser AI, an expert multi-turn conversational cryptocurrency analyst, researcher, and portfolio assistant embedded in CryptoPulser.com.
 ${activeModeNote}
-Rules:
-- Ground every price, percentage, market cap, and watchlist answer in the live dashboard context JSON provided below.
-- Format numbers clearly in the user's currently selected currency (e.g., USD, PKR, EUR, AED, INR) and mention USD equivalents when helpful.
-- Keep responses concise, structured, quantitative, and strictly non-advisory (provide analytical context, never guaranteed financial promises).
-- Never invent fake wallet addresses or fake telemetry.
+How to respond:
+- Engage in natural, intelligent, multi-turn conversation (like ChatGPT/Gemini). Remember prior messages in the conversation history so follow-up questions ("why?", "compare it with Solana", "what about its tokenomics?", "explain that simpler") work seamlessly.
+- You can research and explain ANY cryptocurrency, emerging protocol, DeFi mechanism, tokenomics, cryptography/privacy project (e.g., Arcium ARX, Solana, Bitcoin, Layer 2s, trading strategies, macro catalysts), even if that coin is NOT in the Top 50 table below.
+- Whenever a coin or metric IS present in the Live Dashboard Context JSON below (top50Coins, matchedQueryCoins, globalMarket, userWatchlist, whaleSonarSummary, bubbleConcentrationSnapshot, latestNews), ground your numbers accurately in that live data and format prices in the user's selectedCurrency (mentioning USD equivalents when helpful).
+- If the user asks about a token not present in the live table, answer thoroughly using your blockchain/crypto knowledge and transparently note that live spot price telemetry for that ticker is not currently in the Top 50 feed.
+- Keep answers clear, well-structured, insightful, and non-advisory (never guarantee financial returns and never invent fake live prices or fake wallet hashes).
 
 Live Dashboard Context:
-${JSON.stringify(marketContext ?? {}, null, 2)}`;
+${JSON.stringify(marketContext ?? {})}`;
 
-      const conversationText = messages
-        .slice(-8)
-        .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-        .join('\n\n');
+    const conversationHistory = normalizeConversationHistory(messages, lastUserMessage);
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
-        contents: conversationText,
-        config: {
-          systemInstruction,
-        },
-      });
+    const modelCandidates = ['gemini-4-hydrogen', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+    let lastError: unknown = null;
 
-      const reply = response.text?.trim();
-      if (!reply) {
-        return res.status(502).json({ error: 'Empty response returned by Gemini.' });
+    for (const modelName of modelCandidates) {
+      let shouldTryNextModel = false;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt > 0) {
+          await sleep(450);
+        }
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: conversationHistory,
+            config: {
+              systemInstruction,
+            },
+          });
+
+          const reply = response.text?.trim();
+          if (reply) {
+            return res.json({
+              reply,
+              engine: 'gemini',
+              modelUsed: modelName,
+            });
+          }
+          lastError = new Error('Empty response returned by Gemini.');
+        } catch (err) {
+          lastError = err;
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn(`[AskPulserAI] ${modelName} attempt ${attempt + 1} error:`, msg);
+          if (/NOT_FOUND|404/i.test(msg)) {
+            shouldTryNextModel = true;
+            break;
+          }
+          // Do not retry auth/key/bad-request errors
+          if (/API_KEY_INVALID|PERMISSION_DENIED|401|403|400/i.test(msg)) {
+            shouldTryNextModel = false;
+            break;
+          }
+          // On transient 503/high demand after final retry, try next model candidate
+          if (attempt === 1) {
+            shouldTryNextModel = true;
+          }
+        }
       }
-
-      res.json({ reply });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to generate AI response.';
-      res.status(500).json({ error: message });
+      if (!shouldTryNextModel) {
+        break;
+      }
     }
+
+    const errMsg = lastError instanceof Error ? lastError.message : String(lastError ?? '');
+    console.error('[AskPulserAI] Gemini error:', errMsg);
+
+    if (/API_KEY_INVALID|PERMISSION_DENIED|403|401/i.test(errMsg)) {
+      return res.status(401).json({
+        errorCode: 'INVALID_API_KEY',
+        error:
+          'Gemini API key is invalid or lacks permission. Please verify GEMINI_API_KEY in AI Studio Settings > Secrets.',
+      });
+    }
+    if (/RESOURCE_EXHAUSTED|429|quota/i.test(errMsg)) {
+      return res.status(429).json({
+        errorCode: 'RATE_LIMIT',
+        error:
+          'Gemini API rate limit reached. Please wait a moment before sending another message, or check your quota in Settings > Secrets.',
+      });
+    }
+    if (/NOT_FOUND|404/i.test(errMsg)) {
+      return res.status(404).json({
+        errorCode: 'MODEL_NOT_FOUND',
+        error:
+          'The Gemini model was unavailable for the configured API key.',
+      });
+    }
+
+    return res.status(503).json({
+      errorCode: 'UPSTREAM_UNAVAILABLE',
+      error:
+        'Gemini AI is temporarily busy or unreachable right now. Please try again in a moment.',
+    });
   });
 
   if (process.env.NODE_ENV !== 'production') {

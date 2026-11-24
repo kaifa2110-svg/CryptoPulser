@@ -295,6 +295,8 @@ export interface AiChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  engine?: 'gemini' | 'live-market-engine';
+  modelUsed?: string;
 }
 
 export type AlertKind = 'price_above' | 'price_below' | 'whale_transfer';

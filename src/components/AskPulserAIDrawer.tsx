@@ -7,8 +7,10 @@ import {
   Newspaper,
   PieChart,
   Radar,
+  RotateCcw,
   Send,
   Sparkles,
+  WifiOff,
   X,
 } from 'lucide-react';
 import { usePrivacy } from '../context/PrivacyContext';
@@ -25,6 +27,10 @@ import {
   PlanTier,
 } from '../types/crypto';
 import { formatCompactCurrency, formatPercent, formatPrice } from '../utils/formatters';
+import {
+  buildLiveMarketEngineReply,
+  extractMentionedCoinsFromPrompt,
+} from '../utils/liveMarketAiFallback';
 
 interface AskPulserAIDrawerProps {
   coins: Coin[];
@@ -177,7 +183,7 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isOpen]);
+  }, [messages, isOpen, isSending, errorMsg]);
 
   useEffect(() => {
     if (!isProMax && copilotMode !== 'basic') {
@@ -190,57 +196,85 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
     [copilotMode]
   );
 
-  const buildLiveContext = () => {
-    const top12 = coins.slice(0, 12).map((c) => ({
+  const buildLiveContext = (queryText: string, targetMode: AiCopilotMode) => {
+    const serializeCoin = (c: Coin) => ({
       rank: c.rank,
       symbol: c.symbol,
       name: c.name,
+      category: c.category,
       priceFormatted: formatPrice(c.priceUsd, currency, fxRates),
-      priceUsd: Number(c.priceUsd.toFixed(4)),
-      low24hUsd: Number(c.low24hUsd.toFixed(4)),
-      high24hUsd: Number(c.high24hUsd.toFixed(4)),
+      priceUsd: Number(c.priceUsd.toFixed(6)),
+      low24hUsd: Number(c.low24hUsd.toFixed(6)),
+      high24hUsd: Number(c.high24hUsd.toFixed(6)),
+      low24hFormatted: formatPrice(c.low24hUsd, currency, fxRates),
+      high24hFormatted: formatPrice(c.high24hUsd, currency, fxRates),
+      change1h: formatPercent(c.change1h),
       change24h: formatPercent(c.change24h),
+      change24hNum: Number(c.change24h.toFixed(2)),
       change7d: formatPercent(c.change7d),
+      change7dNum: Number(c.change7d.toFixed(2)),
       marketCap: formatCompactCurrency(c.marketCapUsd, currency, fxRates),
-    }));
+      marketCapUsd: Math.round(c.marketCapUsd),
+      volume24h: formatCompactCurrency(c.volume24hUsd, currency, fxRates),
+      volume24hUsd: Math.round(c.volume24hUsd),
+      fundingRatePct: Number((c.fundingRatePct ?? 0).toFixed(4)),
+    });
+
+    const top50 = coins.slice(0, 50).map(serializeCoin);
+    const matchedCoinsRaw = extractMentionedCoinsFromPrompt(queryText, coins, 6);
+    const matchedQueryCoins = matchedCoinsRaw.map(serializeCoin);
+
+    const nonStables = coins.slice(0, 100).filter((c) => c.category !== 'Stablecoin');
+    const topGainers = [...nonStables]
+      .sort((a, b) => b.change24h - a.change24h)
+      .slice(0, 5)
+      .map(serializeCoin);
+    const topLosers = [...nonStables]
+      .sort((a, b) => a.change24h - b.change24h)
+      .slice(0, 5)
+      .map(serializeCoin);
 
     const watched = coins
       .filter((c) => watchlistIds.includes(c.id))
-      .map((c) => ({
-        symbol: c.symbol,
-        name: c.name,
-        priceFormatted: formatPrice(c.priceUsd, currency, fxRates),
-        change24h: formatPercent(c.change24h),
-        change7d: formatPercent(c.change7d),
-      }));
+      .map(serializeCoin);
 
+    const focusCoin = matchedCoinsRaw[0] || coins[0];
     const whaleTelemetry =
-      coins.length > 0 ? buildFilteredWhaleSonar(coins, '', 14) : null;
-    const leadBubble =
-      coins.length > 0 ? buildBubbleRadarGraph(coins[0]) : null;
+      coins.length > 0
+        ? buildFilteredWhaleSonar(coins, matchedCoinsRaw.length > 0 ? focusCoin.symbol : '', 14)
+        : null;
+    const leadBubble = focusCoin ? buildBubbleRadarGraph(focusCoin) : null;
 
     return {
+      userPrompt: queryText,
+      copilotMode: targetMode,
       selectedCurrency: currency,
       fxRates,
       activeTab,
       activePlan,
       globalMarket: {
         totalMarketCap: formatCompactCurrency(globalStats.totalMarketCapUsd, currency, fxRates),
+        totalMarketCapUsd: Math.round(globalStats.totalMarketCapUsd),
         volume24h: formatCompactCurrency(globalStats.totalVolume24hUsd, currency, fxRates),
+        marketCapChange24h: formatPercent(globalStats.marketCapChange24h),
         btcDominance: `${globalStats.btcDominance.toFixed(2)}%`,
         ethDominance: `${globalStats.ethDominance.toFixed(2)}%`,
         altcoinSeasonIndex: `${globalStats.altcoinSeasonIndex}/100`,
         fearGreed: `${globalStats.fearGreedValue} (${globalStats.fearGreedLabel})`,
       },
-      top12Coins: top12,
+      top50Coins: top50,
+      matchedQueryCoins,
+      topGainers,
+      topLosers,
       userWatchlist: watched,
       whaleSonarSummary: whaleTelemetry
         ? {
+            scopedSymbol: matchedCoinsRaw.length > 0 ? focusCoin.symbol : 'ALL',
             totalVolumeUsd: whaleTelemetry.summary.totalVolumeUsd,
             netBiasLabel: whaleTelemetry.summary.netBiasLabel,
             inflowUsd: whaleTelemetry.summary.inflowUsd,
             outflowUsd: whaleTelemetry.summary.outflowUsd,
-            recentSignals: whaleTelemetry.signals.slice(0, 5).map((s) => ({
+            recentSignals: whaleTelemetry.signals.slice(0, 6).map((s) => ({
               symbol: s.symbol,
               type: s.signalType,
               amountUsd: Math.round(s.amountUsd),
@@ -257,8 +291,9 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
             smartMoneyFlow: leadBubble.smartMoneyFlowLabel,
           }
         : undefined,
-      latestNews: newsArticles.slice(0, 5).map((n) => ({
+      latestNews: newsArticles.slice(0, 8).map((n) => ({
         title: n.title,
+        summary: n.summary,
         category: n.category,
         source: n.source,
       })),
@@ -295,20 +330,79 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
     setErrorMsg(null);
     setIsSending(true);
 
+    const conversationHistory = nextMessages
+      .filter((m) => m.id !== 'welcome')
+      .slice(-36)
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    const isBrowserOffline =
+      typeof navigator !== 'undefined' && navigator.onLine === false;
+
+    const triggerOfflineEngine = () => {
+      const offlineReply = buildLiveMarketEngineReply({
+        prompt: text,
+        copilotMode: targetMode,
+        coins,
+        watchlistIds,
+        globalStats,
+        currency,
+        fxRates,
+        newsArticles,
+      });
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          content: offlineReply,
+          timestamp: new Date().toISOString(),
+          engine: 'live-market-engine',
+          modelUsed: 'live-market-engine-offline',
+        },
+      ]);
+      setIsSending(false);
+    };
+
+    if (isBrowserOffline) {
+      triggerOfflineEngine();
+      return;
+    }
+
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
-          marketContext: buildLiveContext(),
+          userPrompt: text,
+          messages: conversationHistory,
+          marketContext: buildLiveContext(text, targetMode),
           copilotMode: targetMode,
         }),
       });
 
-      const data = await res.json();
+      const data = (await res.json().catch(() => ({}))) as {
+        reply?: string;
+        error?: string;
+        errorCode?: string;
+        engine?: 'gemini' | 'live-market-engine';
+        modelUsed?: string;
+      };
+
       if (!res.ok) {
-        throw new Error(data?.error || `Request failed (${res.status})`);
+        setErrorMsg(
+          data?.error ||
+            'Unable to get a response from Gemini AI right now. Please check Settings > Secrets or try again.'
+        );
+        setIsSending(false);
+        return;
+      }
+
+      const replyText = data?.reply?.trim() || '';
+      if (!replyText) {
+        setErrorMsg('Gemini returned an empty response. Please try phrasing your question again.');
+        setIsSending(false);
+        return;
       }
 
       if (!isProMax) {
@@ -326,15 +420,23 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
         {
           id: `a-${Date.now()}`,
           role: 'assistant',
-          content: data.reply,
+          content: replyText,
           timestamp: new Date().toISOString(),
+          engine: 'gemini',
+          modelUsed: data.modelUsed || 'gemini-2.5-flash',
         },
       ]);
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Unable to reach Crypto Pulser AI.');
-    } finally {
       setIsSending(false);
+    } catch {
+      // Network is unreachable / completely offline: use local Live Market Engine
+      triggerOfflineEngine();
     }
+  };
+
+  const handleResetChat = () => {
+    setMessages([{ ...WELCOME_MESSAGE, timestamp: new Date().toISOString() }]);
+    setErrorMsg(null);
+    setInput('');
   };
 
   const handleSelectMode = (mode: typeof COPILOT_MODES[number]) => {
@@ -397,14 +499,27 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              aria-label="Close AI Drawer"
-              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer shrink-0"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              {messages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handleResetChat}
+                  aria-label="New conversation"
+                  title="New conversation"
+                  className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                aria-label="Close AI Drawer"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* 4 Advanced AI Copilots + Basic Selector */}
@@ -463,6 +578,14 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
                       : 'bg-slate-100 dark:bg-slate-800/80 text-slate-800 dark:text-slate-100'
                   }`}
                 >
+                  {msg.role === 'assistant' && msg.engine === 'live-market-engine' && (
+                    <div className="mb-1.5 flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                        <WifiOff className="w-2.5 h-2.5" />
+                        <span>Live Market Engine · Offline Mode</span>
+                      </span>
+                    </div>
+                  )}
                   {msg.content}
                 </div>
               </div>
@@ -534,7 +657,7 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
               placeholder={
                 quotaReached
                   ? 'Daily limit reached — Upgrade to Pro Max...'
-                  : `Ask about coins, ${currency} prices, or signals...`
+                  : `Ask ${activeModeMeta.label} about any coin (${currency})...`
               }
               className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
             />
