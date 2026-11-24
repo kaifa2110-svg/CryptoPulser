@@ -2,7 +2,6 @@ import React from 'react';
 import { Gauge, PieChart } from 'lucide-react';
 import { Coin, CurrencyCode, FxRates, GlobalMarketStats } from '../types/crypto';
 import { formatCompactCurrency, formatPercent, formatPrice } from '../utils/formatters';
-import { StealthValue } from './StealthText';
 
 interface AltcoinsIndexViewProps {
   coins: Coin[];
@@ -125,10 +124,7 @@ export const AltcoinsIndexView: React.FC<AltcoinsIndexViewProps> = ({
               <span>Market Capitalization Dominance</span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Share of{' '}
-              <StealthValue>
-                {formatCompactCurrency(globalStats.totalMarketCapUsd, currency, fxRates)}
-              </StealthValue>{' '}
+              Share of {formatCompactCurrency(globalStats.totalMarketCapUsd, currency, fxRates)}{' '}
               total digital asset market cap
             </p>
           </div>
@@ -231,7 +227,7 @@ export const AltcoinsIndexView: React.FC<AltcoinsIndexViewProps> = ({
                   </div>
                   <div className="font-mono tabular-nums flex items-center gap-3">
                     <span className="text-slate-500 dark:text-slate-400">
-                      <StealthValue>{formatPrice(coin.priceUsd, currency, fxRates)}</StealthValue>
+                      {formatPrice(coin.priceUsd, currency, fxRates)}
                     </span>
                     <span
                       className={`font-semibold ${

@@ -260,7 +260,7 @@ export const InvestmentSimulator: React.FC<InvestmentSimulatorProps> = ({
                 #{selectedCoin.rank} · {selectedCoin.name} ({selectedCoin.symbol})
               </span>
               <span className="font-mono text-xs text-slate-500 dark:text-slate-400 shrink-0 ml-2">
-                <StealthValue>{formatPrice(selectedCoin.priceUsd, currency, fxRates)}</StealthValue>
+                {formatPrice(selectedCoin.priceUsd, currency, fxRates)}
               </span>
             </button>
 
@@ -292,7 +292,7 @@ export const InvestmentSimulator: React.FC<InvestmentSimulatorProps> = ({
                         {c.name} <span className="font-mono text-slate-500">{c.symbol}</span>
                       </span>
                       <span className="font-mono tabular-nums text-slate-600 dark:text-slate-300">
-                        <StealthValue>{formatPrice(c.priceUsd, currency, fxRates)}</StealthValue>
+                        {formatPrice(c.priceUsd, currency, fxRates)}
                       </span>
                     </button>
                   ))}

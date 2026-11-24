@@ -1,9 +1,11 @@
 import React from 'react';
-import { Bell, Clock, Crown, Sparkles } from 'lucide-react';
+import { Bell, Clock, Crown, LogIn, Sparkles } from 'lucide-react';
+import { useUserAccount } from '../context/UserAccountContext';
 import { CurrencyCode, FxRates, NavTab, PlanTier } from '../types/crypto';
 import { formatProMonthlyPrice } from '../utils/formatters';
 import { PrivacyShieldControl } from './PrivacyShieldControl';
 import { PulsarLogo } from './PulsarLogo';
+import { UserAvatar } from './UserAvatar';
 
 interface TopBarProps {
   activeTab: NavTab;
@@ -32,6 +34,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   activeAlertCount,
   onOpenAlertCenter,
 }) => {
+  const { currentUser, setAuthModalOpen, setProfileDrawerOpen } = useUserAccount();
   const proPriceLabel = formatProMonthlyPrice(currency, fxRates);
   const isProMax = activePlan === 'pro_max';
   const isPro = activePlan === 'pro' || isProMax;
@@ -164,6 +167,36 @@ export const TopBar: React.FC<TopBarProps> = ({
               </>
             )}
           </button>
+
+          {currentUser ? (
+            <button
+              type="button"
+              onClick={() => setProfileDrawerOpen(true)}
+              aria-label="Open User Profile"
+              title={`${currentUser.displayName} (${currentUser.username})`}
+              className="inline-flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700/90 bg-slate-100/80 dark:bg-[#11182A] hover:border-cyan-400/60 transition-colors cursor-pointer shrink-0"
+            >
+              <UserAvatar
+                displayName={currentUser.displayName}
+                avatarUrl={currentUser.avatarUrl}
+                avatarPresetId={currentUser.avatarPresetId}
+                size="sm"
+              />
+              <span className="hidden lg:inline text-xs font-semibold text-slate-800 dark:text-slate-100 max-w-[100px] truncate">
+                {currentUser.displayName}
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAuthModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Log In / Sign Up</span>
+              <span className="sm:hidden">Log In</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

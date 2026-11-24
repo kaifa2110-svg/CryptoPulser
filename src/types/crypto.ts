@@ -31,6 +31,112 @@ export type NavTab =
   | 'whale-sonar'
   | 'pulser-square';
 
+export type MarketSubTab =
+  | 'coins'
+  | 'derivatives'
+  | 'liquidity-map'
+  | 'etf-tracker';
+
+export type BlockchainNetwork =
+  | 'All Networks'
+  | 'Ethereum'
+  | 'BNB Smart Chain (BSC)'
+  | 'Solana'
+  | 'Arbitrum'
+  | 'Base'
+  | 'Polygon'
+  | 'Avalanche'
+  | 'Optimism'
+  | 'Tron'
+  | 'Sui'
+  | 'Aptos'
+  | 'TON'
+  | 'Cosmos'
+  | 'Polkadot'
+  | 'Cardano'
+  | 'Near'
+  | 'Fantom'
+  | 'Mantle'
+  | 'zkSync'
+  | 'Linea'
+  | 'Blast'
+  | 'Cronos';
+
+export interface CoinContract {
+  network: Exclude<BlockchainNetwork, 'All Networks'>;
+  address: string;
+}
+
+export interface ProMarketFilters {
+  category: string;
+  marketCapMin: string;
+  marketCapMax: string;
+  fdvMin: string;
+  fdvMax: string;
+  change24hMin: string;
+  change24hMax: string;
+  vol24hMin: string;
+  vol24hMax: string;
+  vol24hPctMin: string;
+  vol24hPctMax: string;
+  oiMin: string;
+  oiMax: string;
+  oi24hPctMin: string;
+  oi24hPctMax: string;
+  derivVol24hMin: string;
+  derivVol24hMax: string;
+  fundingRateMin: string;
+  fundingRateMax: string;
+  longLiq24hMin: string;
+  longLiq24hMax: string;
+  shortLiq24hMin: string;
+  shortLiq24hMax: string;
+  totalLiq24hMin: string;
+  totalLiq24hMax: string;
+}
+
+export interface LiquidityLevel {
+  priceUsd: number;
+  distancePct: number;
+  sizeUsd: number;
+  cumulativeUsd: number;
+  side: 'bid' | 'ask';
+  clusterLabel?: string;
+  isWall?: boolean;
+}
+
+export interface CoinLiquidityMap {
+  coinId: string;
+  symbol: string;
+  midPriceUsd: number;
+  spreadBps: number;
+  bidDepth2PctUsd: number;
+  askDepth2PctUsd: number;
+  biggestBidWall: LiquidityLevel;
+  biggestAskWall: LiquidityLevel;
+  bids: LiquidityLevel[];
+  asks: LiquidityLevel[];
+}
+
+export interface SpotEtfIssuer {
+  ticker: string;
+  name: string;
+  issuer: string;
+  asset: 'BTC' | 'ETH';
+  feePct: number;
+  aumUsd: number;
+  netFlow1dUsd: number;
+  netFlow7dUsd: number;
+  volume24hUsd: number;
+  holdingsUnits: number;
+}
+
+export interface EtfDailyFlowPoint {
+  date: string;
+  btcNetFlowUsd: number;
+  ethNetFlowUsd: number;
+}
+
 export type SimulatorTimeframe = '7d' | '30d' | '90d' | '1y' | '3y' | '5y';
 
 export interface FxRates {
@@ -53,6 +159,7 @@ export interface Coin {
   marketCapUsd: number;
   fdvUsd: number;
   volume24hUsd: number;
+  vol24hChangePct: number;
   high24hUsd: number;
   low24hUsd: number;
   circulatingSupply: number;
@@ -64,6 +171,15 @@ export interface Coin {
   change1y: number;
   dominancePct: number;
   sparkline7d: number[];
+  networks: Exclude<BlockchainNetwork, 'All Networks'>[];
+  contracts: CoinContract[];
+  openInterestUsd: number;
+  oiChange24hPct: number;
+  derivativesVol24hUsd: number;
+  fundingRatePct: number;
+  longLiq24hUsd: number;
+  shortLiq24hUsd: number;
+  totalLiq24hUsd: number;
   isLiveApi?: boolean;
 }
 
@@ -223,11 +339,14 @@ export interface SquareComment {
 
 export interface SquarePost {
   id: string;
+  authorId?: string;
   author: string;
   handle: string;
   roleLabel: string;
   avatarInitials: string;
   avatarColor: string;
+  authorAvatarUrl?: string;
+  authorWebsite?: string;
   verified: boolean;
   following: boolean;
   timestamp: string;
@@ -245,3 +364,72 @@ export interface SquarePost {
   comments: SquareComment[];
 }
 
+export type ThemePreference = 'light' | 'dark' | 'system';
+
+export type AppLanguage = 'English' | 'Urdu' | 'Arabic' | 'Spanish' | 'Chinese';
+
+export type LaunchScreenOption = 'Markets' | 'Pulser Square' | 'Simulator' | 'Whale Sonar';
+
+export interface ConsentPreferences {
+  essentialCookies: true;
+  analyticsTelemetry: boolean;
+  marketPersonalization: boolean;
+  crashDiagnostics: boolean;
+}
+
+export interface DeviceSession {
+  id: string;
+  deviceName: string;
+  osBrowser: string;
+  ipAddress: string;
+  location: string;
+  lastActive: string;
+  isCurrent: boolean;
+}
+
+export type SecurityActivityType =
+  | 'Login'
+  | 'Sign Up'
+  | 'Profile Updated'
+  | 'Password Change'
+  | '2FA Enabled'
+  | '2FA Disabled'
+  | 'Biometric Enabled'
+  | 'Biometric Disabled'
+  | 'Wallet Verified'
+  | 'API Key Sealed'
+  | 'Device Revoked'
+  | 'Consent Updated';
+
+export interface SecurityActivityEntry {
+  id: string;
+  type: SecurityActivityType;
+  detail: string;
+  ipAddress: string;
+  timestamp: string;
+}
+
+export interface UserAccountProfile {
+  id: string;
+  displayName: string;
+  username: string;
+  email: string;
+  bio: string;
+  websiteUrl: string;
+  avatarUrl: string;
+  avatarPresetId: string;
+  diamonds: number;
+  streakDays: number;
+  lastCheckInDate: string | null;
+  claimedAirdropIds: string[];
+  createdAt: string;
+  walletAddress?: string;
+  walletNetwork?: 'EVM (0x)' | 'Solana' | 'Bitcoin' | null;
+  walletVerified?: boolean;
+  biometricEnabled?: boolean;
+  twoFactorEnabled?: boolean;
+  twoFactorSecret?: string;
+  consent?: ConsentPreferences;
+  devices?: DeviceSession[];
+  activities?: SecurityActivityEntry[];
+}

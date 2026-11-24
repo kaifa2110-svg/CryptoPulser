@@ -9,15 +9,17 @@ import {
   Newspaper,
   Radar,
   RefreshCw,
+  Share2,
   Sun,
   TrendingUp,
   Waves,
 } from 'lucide-react';
-import { CurrencyCode, FxRates, GlobalMarketStats, NavTab } from '../types/crypto';
+import { Coin, CurrencyCode, FxRates, GlobalMarketStats, NavTab } from '../types/crypto';
 import { formatCompactCurrency, formatPercent } from '../utils/formatters';
-import { StealthValue } from './StealthText';
+import { GlobalSearchBar } from './GlobalSearchBar';
 
 interface MarketToolbarProps {
+  coins: Coin[];
   globalStats: GlobalMarketStats;
   currency: CurrencyCode;
   onChangeCurrency: (c: CurrencyCode) => void;
@@ -30,6 +32,8 @@ interface MarketToolbarProps {
   isPro: boolean;
   isRefreshing: boolean;
   onRefresh: () => void;
+  onOpenShareModal: () => void;
+  onSelectCoin: (coin: Coin) => void;
 }
 
 const TABS: Array<{ id: NavTab; label: string; pro?: boolean; icon: React.ReactNode }> = [
@@ -44,6 +48,7 @@ const TABS: Array<{ id: NavTab; label: string; pro?: boolean; icon: React.ReactN
 ];
 
 export const MarketToolbar: React.FC<MarketToolbarProps> = ({
+  coins,
   globalStats,
   currency,
   onChangeCurrency,
@@ -56,6 +61,8 @@ export const MarketToolbar: React.FC<MarketToolbarProps> = ({
   isPro,
   isRefreshing,
   onRefresh,
+  onOpenShareModal,
+  onSelectCoin,
 }) => {
   const mcapPositive = globalStats.marketCapChange24h >= 0;
 
@@ -68,9 +75,7 @@ export const MarketToolbar: React.FC<MarketToolbarProps> = ({
             <div className="flex items-center gap-1.5">
               <span>Market Cap:</span>
               <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">
-                <StealthValue>
-                  {formatCompactCurrency(globalStats.totalMarketCapUsd, currency, fxRates)}
-                </StealthValue>
+                {formatCompactCurrency(globalStats.totalMarketCapUsd, currency, fxRates)}
               </span>
               <span
                 className={`font-mono tabular-nums font-medium ${
@@ -88,9 +93,7 @@ export const MarketToolbar: React.FC<MarketToolbarProps> = ({
             <div className="flex items-center gap-1.5">
               <span>24h Vol:</span>
               <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">
-                <StealthValue>
-                  {formatCompactCurrency(globalStats.totalVolume24hUsd, currency, fxRates)}
-                </StealthValue>
+                {formatCompactCurrency(globalStats.totalVolume24hUsd, currency, fxRates)}
               </span>
             </div>
 
@@ -129,18 +132,8 @@ export const MarketToolbar: React.FC<MarketToolbarProps> = ({
             </div>
           </div>
 
-          {/* Right workspace controls: Refresh, Currency, Theme */}
+          {/* Right workspace controls: Currency & Theme */}
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={onRefresh}
-              title="Refresh live prices"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            >
-              <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin text-emerald-500' : ''}`} />
-              <span>Sync</span>
-            </button>
-
             <div
               className="inline-flex items-center rounded-md border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 p-0.5"
               role="group"
@@ -173,7 +166,41 @@ export const MarketToolbar: React.FC<MarketToolbarProps> = ({
           </div>
         </div>
 
-        {/* 7 Main Navigation Tabs */}
+        {/* Global Search Bar + Manual Refresh + Share Page Command Strip */}
+        <div className="py-2.5 flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-200/80 dark:border-slate-800/70">
+          <GlobalSearchBar
+            coins={coins}
+            currency={currency}
+            fxRates={fxRates}
+            onSelectCoin={onSelectCoin}
+          />
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={onRefresh}
+              title="Refresh live market prices, volume, and derivatives telemetry"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700/90 bg-white dark:bg-[#101624] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-cyan-500/60 hover:text-cyan-600 dark:hover:text-cyan-300 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-emerald-500' : 'text-cyan-500'}`}
+              />
+              <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenShareModal}
+              title="Share market link, QR code, or save snapshot"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700/90 bg-white dark:bg-[#101624] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-emerald-500/60 hover:text-emerald-600 dark:hover:text-emerald-300 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <Share2 className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Share</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 8 Main Navigation Tabs */}
         <div className="py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           {TABS.map((tab) => {
             const active = activeTab === tab.id;
@@ -206,3 +233,4 @@ export const MarketToolbar: React.FC<MarketToolbarProps> = ({
     </section>
   );
 };
+

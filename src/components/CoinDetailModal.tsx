@@ -18,7 +18,6 @@ import {
   formatPrice,
   formatSupply,
 } from '../utils/formatters';
-import { StealthValue } from './StealthText';
 
 interface CoinDetailModalProps {
   coin: Coin | null;
@@ -182,7 +181,7 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
               </div>
               <div className="flex items-baseline gap-3 mt-1">
                 <span className="font-mono tabular-nums text-2xl font-bold text-slate-900 dark:text-white">
-                  <StealthValue>{formatPrice(coin.priceUsd, currency, fxRates)}</StealthValue>
+                  {formatPrice(coin.priceUsd, currency, fxRates)}
                 </span>
                 <span
                   className={`font-mono tabular-nums text-sm font-semibold ${
@@ -326,22 +325,15 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
                   <div className="text-slate-500 dark:text-slate-400">
                     {hoveredPoint ? (
                       <span className="font-mono text-slate-900 dark:text-slate-100 font-semibold">
-                        {hoveredPoint.date} ·{' '}
-                        <StealthValue>{formatPrice(hoveredPoint.priceUsd, currency, fxRates)}</StealthValue>
+                        {hoveredPoint.date} · {formatPrice(hoveredPoint.priceUsd, currency, fxRates)}
                       </span>
                     ) : (
                       <span>Hover across chart to inspect daily historical price</span>
                     )}
                   </div>
                   <div className="font-mono tabular-nums text-slate-500 dark:text-slate-400">
-                    High:{' '}
-                    <StealthValue>
-                      {formatPrice(maxP / (fxRates[currency] || 1), currency, fxRates)}
-                    </StealthValue>{' '}
-                    · Low:{' '}
-                    <StealthValue>
-                      {formatPrice(minP / (fxRates[currency] || 1), currency, fxRates)}
-                    </StealthValue>
+                    High: {formatPrice(maxP / (fxRates[currency] || 1), currency, fxRates)} · Low:{' '}
+                    {formatPrice(minP / (fxRates[currency] || 1), currency, fxRates)}
                   </div>
                 </div>
 
@@ -455,12 +447,8 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
                 />
               </div>
               <div className="flex items-center justify-between font-mono tabular-nums text-xs font-semibold text-slate-900 dark:text-slate-100">
-                <span>
-                  <StealthValue>{formatPrice(coin.low24hUsd, currency, fxRates)}</StealthValue>
-                </span>
-                <span>
-                  <StealthValue>{formatPrice(coin.high24hUsd, currency, fxRates)}</StealthValue>
-                </span>
+                <span>{formatPrice(coin.low24hUsd, currency, fxRates)}</span>
+                <span>{formatPrice(coin.high24hUsd, currency, fxRates)}</span>
               </div>
             </div>
 
@@ -472,19 +460,19 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
                   Market Cap
                 </span>
                 <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">
-                  <StealthValue>{formatCompactCurrency(coin.marketCapUsd, currency, fxRates)}</StealthValue>
+                  {formatCompactCurrency(coin.marketCapUsd, currency, fxRates)}
                 </span>
               </div>
               <div className="p-3 flex items-center justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Fully Diluted Val (FDV)</span>
                 <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">
-                  <StealthValue>{formatCompactCurrency(coin.fdvUsd, currency, fxRates)}</StealthValue>
+                  {formatCompactCurrency(coin.fdvUsd, currency, fxRates)}
                 </span>
               </div>
               <div className="p-3 flex items-center justify-between">
                 <span className="text-slate-500 dark:text-slate-400">24h Trading Volume</span>
                 <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">
-                  <StealthValue>{formatCompactCurrency(coin.volume24hUsd, currency, fxRates)}</StealthValue>
+                  {formatCompactCurrency(coin.volume24hUsd, currency, fxRates)}
                 </span>
               </div>
               <div className="p-3 flex items-center justify-between">
@@ -496,15 +484,13 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
               <div className="p-3 flex items-center justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Circulating Supply</span>
                 <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">
-                  <StealthValue>{formatSupply(coin.circulatingSupply)} {coin.symbol}</StealthValue>
+                  {formatSupply(coin.circulatingSupply)} {coin.symbol}
                 </span>
               </div>
               <div className="p-3 flex items-center justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Max Supply</span>
                 <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">
-                  <StealthValue>
-                    {coin.maxSupply ? `${formatSupply(coin.maxSupply)} ${coin.symbol}` : 'Uncapped'}
-                  </StealthValue>
+                  {coin.maxSupply ? `${formatSupply(coin.maxSupply)} ${coin.symbol}` : 'Uncapped'}
                 </span>
               </div>
               <div className="p-3 flex items-center justify-between">

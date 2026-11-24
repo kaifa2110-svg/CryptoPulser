@@ -2,7 +2,6 @@ import React from 'react';
 import { Flame, TrendingDown, TrendingUp, Volume2 } from 'lucide-react';
 import { Coin, CurrencyCode, FxRates } from '../types/crypto';
 import { formatCompactCurrency, formatPercent, formatPrice } from '../utils/formatters';
-import { StealthValue } from './StealthText';
 
 interface TrendingViewProps {
   coins: Coin[];
@@ -78,11 +77,11 @@ export const TrendingView: React.FC<TrendingViewProps> = ({
 
               <div className="text-right shrink-0">
                 <div className="font-mono tabular-nums text-xs font-semibold text-slate-900 dark:text-slate-100">
-                  <StealthValue>{formatPrice(coin.priceUsd, currency, fxRates)}</StealthValue>
+                  {formatPrice(coin.priceUsd, currency, fxRates)}
                 </div>
                 {metricMode === 'vol' ? (
                   <div className="font-mono tabular-nums text-[11px] text-slate-500 dark:text-slate-400">
-                    Vol <StealthValue>{formatCompactCurrency(coin.volume24hUsd, currency, fxRates)}</StealthValue>
+                    Vol {formatCompactCurrency(coin.volume24hUsd, currency, fxRates)}
                   </div>
                 ) : (
                   <div

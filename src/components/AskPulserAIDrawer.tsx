@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { usePrivacy } from '../context/PrivacyContext';
+import { useUserAccount } from '../context/UserAccountContext';
 import { buildBubbleRadarGraph, buildFilteredWhaleSonar } from '../data/cryptoEngine';
 import {
   AiChatMessage,
@@ -141,7 +142,8 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
   newsArticles,
   onOpenProMaxModal,
 }) => {
-  const { stealthMode, incognitoMode, wipeVersion } = usePrivacy();
+  const { incognitoMode, wipeVersion } = usePrivacy();
+  const { showAiFloatie } = useUserAccount();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [copilotMode, setCopilotMode] = useState<AiCopilotMode>('basic');
@@ -349,7 +351,7 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
   return (
     <>
       {/* Floating Launcher Button */}
-      {!isOpen && (
+      {!isOpen && showAiFloatie && (
         <button
           type="button"
           onClick={() => setIsOpen(true)}
@@ -459,7 +461,7 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
                     msg.role === 'user'
                       ? 'bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950 font-medium'
                       : 'bg-slate-100 dark:bg-slate-800/80 text-slate-800 dark:text-slate-100'
-                  } ${stealthMode && msg.id !== 'welcome' ? 'blur-[4px] select-none' : ''}`}
+                  }`}
                 >
                   {msg.content}
                 </div>

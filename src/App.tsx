@@ -1,37 +1,62 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Activity,
+  BarChart3,
+  Coins as CoinsIcon,
+  Flame,
+} from 'lucide-react';
 import { AdvertiseModal } from './components/AdvertiseModal';
 import { AlertCenterPopover, AlertToastStack } from './components/AlertCenterPopover';
 import { AltcoinsIndexView } from './components/AltcoinsIndexView';
 import { AskPulserAIDrawer } from './components/AskPulserAIDrawer';
+import { AuthModal } from './components/AuthModal';
 import { BubbleRadarView } from './components/BubbleRadarView';
 import { CheckoutModal } from './components/CheckoutModal';
 import { CoinDetailModal } from './components/CoinDetailModal';
+import { DerivativesView } from './components/DerivativesView';
+import { EtfTrackerView } from './components/EtfTrackerView';
 import { InvestmentSimulator } from './components/InvestmentSimulator';
+import { LiquidityMapView } from './components/LiquidityMapView';
 import { MarketToolbar } from './components/MarketToolbar';
 import { NewsView } from './components/NewsView';
 import { PrivacyLockOverlay } from './components/PrivacyLockOverlay';
+import { ProFilterDrawer } from './components/ProFilterDrawer';
 import { ProPricingModal } from './components/ProPricingModal';
 import { PulserSquareView } from './components/PulserSquareView';
+import { SettingsModal } from './components/SettingsModal';
+import { SharePageModal } from './components/SharePageModal';
 import { SponsoredBanner } from './components/SponsoredBanner';
 import { Top1000Table } from './components/Top1000Table';
 import { TopBar } from './components/TopBar';
 import { TrendingView } from './components/TrendingView';
+import { UserProfileDrawer } from './components/UserProfileDrawer';
 import { WatchlistView } from './components/WatchlistView';
 import { WhaleSonarView } from './components/WhaleSonarView';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
-import { buildTop1000Coins, INITIAL_SQUARE_POSTS } from './data/cryptoEngine';
+import { UserAccountProvider, useUserAccount } from './context/UserAccountContext';
+import {
+  applyProMarketFilters,
+  buildTop1000Coins,
+  countActiveProFilters,
+  EMPTY_PRO_FILTERS,
+  INITIAL_SQUARE_POSTS,
+} from './data/cryptoEngine';
 import {
   AlertKind,
   AlertToast,
+  BlockchainNetwork,
   CheckoutReceipt,
   Coin,
   CurrencyCode,
   FxRates,
   GlobalMarketStats,
+  LaunchScreenOption,
+  MarketSubTab,
   NavTab,
   NewsArticle,
   PlanTier,
   PriceWhaleAlert,
+  ProMarketFilters,
   SquarePost,
 } from './types/crypto';
 import { CURRENCY_META, formatPrice } from './utils/formatters';
@@ -83,12 +108,28 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
   activePlan,
   isPro,
 }) => {
-  const { registerWipeHandler } = usePrivacy();
-  const [activeTab, setActiveTab] = useState<NavTab>('top1000');
+  const { registerWipeHandler, cmcApiKey } = usePrivacy();
+  const {
+    currentUser,
+    themePref,
+    setThemePref,
+    launchScreen,
+    pushNotificationsEnabled,
+    logSecurityActivity,
+  } = useUserAccount();
+  const [activeTab, setActiveTab] = useState<NavTab>(() => {
+    if (launchScreen === 'Pulser Square') return 'pulser-square';
+    if (launchScreen === 'Whale Sonar') return 'whale-sonar';
+    return 'top1000';
+  });
   const [currency, setCurrency] = useState<CurrencyCode>(() =>
     readStorage<CurrencyCode>('cp_currency', 'USD')
   );
-  const [isDark, setIsDark] = useState<boolean>(() => readStorage<boolean>('cp_dark', true));
+  const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() =>
+    typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : true
+  );
   const [watchlistIds, setWatchlistIds] = useState<string[]>(() =>
     readStorage<string[]>('cp_watchlist', ['bitcoin', 'ethereum', 'solana'])
   );
@@ -110,6 +151,13 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
   const [detailCoin, setDetailCoin] = useState<Coin | null>(null);
   const [simulatorCoinId, setSimulatorCoinId] = useState<string>('bitcoin');
   const [radarCoinId, setRadarCoinId] = useState<string>('ethereum');
+  const [liquidityCoinId, setLiquidityCoinId] = useState<string>('bitcoin');
+  const [marketSubTab, setMarketSubTab] = useState<MarketSubTab>('coins');
+  const [selectedNetwork, setSelectedNetwork] = useState<BlockchainNetwork>('All Networks');
+  const [proFilters, setProFilters] = useState<ProMarketFilters>(EMPTY_PRO_FILTERS);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+
   const [proModalOpen, setProModalOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState<'pro' | 'pro_max'>('pro');
@@ -119,6 +167,17 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
   const [alertCenterOpen, setAlertCenterOpen] = useState(false);
   const [alertTargetCoin, setAlertTargetCoin] = useState<Coin | null>(null);
   const [alertTargetKind, setAlertTargetKind] = useState<AlertKind>('price_above');
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => setSystemPrefersDark(e.matches);
+    setSystemPrefersDark(mq.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  const isDark = themePref === 'system' ? systemPrefersDark : themePref === 'dark';
 
   useEffect(() => {
     const root = document.documentElement;
@@ -145,6 +204,26 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
     localStorage.setItem('cp_square_posts', JSON.stringify(squarePosts));
   }, [squarePosts]);
 
+  // If user configured Launch Screen = Simulator, smoothly scroll to Simulator on initial mount
+  useEffect(() => {
+    if (launchScreen !== 'Simulator') return;
+    const t = window.setTimeout(() => {
+      const el = document.getElementById('investment-simulator');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 350);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Log "API Key Sealed" into Account Activities whenever Local Vault key is newly sealed
+  const prevApiKeyRef = React.useRef<string>(cmcApiKey);
+  useEffect(() => {
+    if (cmcApiKey && cmcApiKey !== prevApiKeyRef.current) {
+      logSecurityActivity('API Key Sealed', 'CoinMarketCap API key encrypted & sealed in Local Vault');
+    }
+    prevApiKeyRef.current = cmcApiKey;
+  }, [cmcApiKey, logSecurityActivity]);
+
   // Register Panic Wipe reset handler
   useEffect(() => {
     return registerWipeHandler(() => {
@@ -153,6 +232,8 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
       setSquarePosts(INITIAL_SQUARE_POSTS);
       setDetailCoin(null);
       setAlertCenterOpen(false);
+      setSelectedNetwork('All Networks');
+      setProFilters(EMPTY_PRO_FILTERS);
     });
   }, [registerWipeHandler]);
 
@@ -172,13 +253,20 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
           });
         }
       }
+      if (manual) {
+        pushToast({
+          title: 'Markets Synced',
+          message: 'Live prices, spot volumes, and derivatives telemetry refreshed.',
+          kind: 'price_above',
+        });
+      }
     } catch {
       // Fallback dataset in buildTop1000Coins keeps dashboard functional
     } finally {
       setIsLoadingMarkets(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [pushToast]);
 
   const fetchNews = useCallback(async () => {
     try {
@@ -218,19 +306,21 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
       const hitBelow = al.kind === 'price_below' && coin.priceUsd <= al.thresholdUsd;
       if (hitAbove || hitBelow) {
         changed = true;
-        pushToast({
-          title: `${coin.symbol} Price Alert Triggered`,
-          message: `${coin.name} reached ${formatPrice(coin.priceUsd, currency, fxRates)} (${
-            al.kind === 'price_above' ? 'Above' : 'Below'
-          } target).`,
-          kind: al.kind,
-        });
+        if (pushNotificationsEnabled) {
+          pushToast({
+            title: `${coin.symbol} Price Alert Triggered`,
+            message: `${coin.name} reached ${formatPrice(coin.priceUsd, currency, fxRates)} (${
+              al.kind === 'price_above' ? 'Above' : 'Below'
+            } target).`,
+            kind: al.kind,
+          });
+        }
         return { ...al, triggeredAt: new Date().toISOString() };
       }
       return al;
     });
     if (changed) setAlerts(updated);
-  }, [coins, alerts, currency, fxRates, pushToast]);
+  }, [coins, alerts, currency, fxRates, pushToast, pushNotificationsEnabled]);
 
   const globalStats: GlobalMarketStats = useMemo(
     () => ({
@@ -270,6 +360,21 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
   const radarCoin = useMemo(
     () => coins.find((c) => c.id === radarCoinId) ?? coins[1] ?? coins[0],
     [coins, radarCoinId]
+  );
+
+  const liquidityCoin = useMemo(
+    () => coins.find((c) => c.id === liquidityCoinId) ?? coins[0],
+    [coins, liquidityCoinId]
+  );
+
+  const filteredMarketCoins = useMemo(
+    () => applyProMarketFilters(coins, selectedNetwork, proFilters),
+    [coins, selectedNetwork, proFilters]
+  );
+
+  const activeFilterCount = useMemo(
+    () => countActiveProFilters(proFilters),
+    [proFilters]
   );
 
   const toggleWatchlist = (coinId: string) => {
@@ -410,18 +515,21 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
       />
 
       <MarketToolbar
+        coins={coins}
         globalStats={globalStats}
         currency={currency}
         onChangeCurrency={setCurrency}
         fxRates={fxRates}
         isDark={isDark}
-        onToggleTheme={() => setIsDark((d) => !d)}
+        onToggleTheme={() => setThemePref(isDark ? 'light' : 'dark')}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         watchlistCount={watchlistIds.length}
         isPro={isPro}
         isRefreshing={isRefreshing}
         onRefresh={() => fetchMarkets(true)}
+        onOpenShareModal={() => setShareModalOpen(true)}
+        onSelectCoin={setDetailCoin}
       />
 
       <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -435,16 +543,118 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
 
         {/* Active Navigation View */}
         {activeTab === 'top1000' && (
-          <Top1000Table
-            coins={coins}
-            currency={currency}
-            fxRates={fxRates}
-            watchlistIds={watchlistIds}
-            onToggleWatchlist={toggleWatchlist}
-            onSelectCoin={setDetailCoin}
-            onOpenAlertForCoin={(c) => openAlertForCoin(c, 'price_above')}
-            isLoading={isLoadingMarkets}
-          />
+          <div className="space-y-4">
+            {/* CoinMarketCap-style Pro Markets Sub-Tabs */}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101624] p-2">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                {(
+                  [
+                    {
+                      id: 'coins',
+                      label: 'Coins (Top 1000)',
+                      icon: <CoinsIcon className="w-3.5 h-3.5" />,
+                    },
+                    {
+                      id: 'derivatives',
+                      label: 'Open Interest & Liquidations',
+                      icon: <Flame className="w-3.5 h-3.5" />,
+                    },
+                    {
+                      id: 'liquidity-map',
+                      label: 'Liquidity Map',
+                      icon: <Activity className="w-3.5 h-3.5" />,
+                    },
+                    {
+                      id: 'etf-tracker',
+                      label: 'ETF Trackers',
+                      icon: <BarChart3 className="w-3.5 h-3.5" />,
+                    },
+                  ] as Array<{ id: MarketSubTab; label: string; icon: React.ReactNode }>
+                ).map((sub) => {
+                  const active = marketSubTab === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => setMarketSubTab(sub.id)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                        active
+                          ? 'bg-slate-900 text-white dark:bg-cyan-500 dark:text-slate-950'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/70 hover:text-slate-900 dark:hover:text-slate-100'
+                      }`}
+                    >
+                      {sub.icon}
+                      <span>{sub.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:flex items-center gap-2 pr-2 text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                <span>Network: <strong className="text-slate-800 dark:text-slate-200">{selectedNetwork}</strong></span>
+                {activeFilterCount > 0 && (
+                  <span className="text-emerald-500 font-semibold">
+                    · {activeFilterCount} Pro Filter{activeFilterCount === 1 ? '' : 's'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {marketSubTab === 'coins' && (
+              <Top1000Table
+                allCoins={coins}
+                coins={filteredMarketCoins}
+                currency={currency}
+                fxRates={fxRates}
+                watchlistIds={watchlistIds}
+                onToggleWatchlist={toggleWatchlist}
+                onSelectCoin={setDetailCoin}
+                onOpenAlertForCoin={(c) => openAlertForCoin(c, 'price_above')}
+                selectedNetwork={selectedNetwork}
+                onSelectNetwork={setSelectedNetwork}
+                activeFilterCount={activeFilterCount}
+                onOpenFilters={() => setFilterDrawerOpen(true)}
+                onResetAllFilters={() => {
+                  setSelectedNetwork('All Networks');
+                  setProFilters(EMPTY_PRO_FILTERS);
+                }}
+                isLoading={isLoadingMarkets}
+              />
+            )}
+
+            {marketSubTab === 'derivatives' && (
+              <DerivativesView
+                allCoins={coins}
+                filteredCoins={filteredMarketCoins}
+                currency={currency}
+                fxRates={fxRates}
+                selectedNetwork={selectedNetwork}
+                onSelectNetwork={setSelectedNetwork}
+                activeFilterCount={activeFilterCount}
+                onOpenFilters={() => setFilterDrawerOpen(true)}
+                onSelectCoin={setDetailCoin}
+              />
+            )}
+
+            {marketSubTab === 'liquidity-map' && liquidityCoin && (
+              <LiquidityMapView
+                coins={coins}
+                selectedCoin={liquidityCoin}
+                onSelectCoin={(c) => setLiquidityCoinId(c.id)}
+                currency={currency}
+                fxRates={fxRates}
+                onOpenCoinModal={setDetailCoin}
+              />
+            )}
+
+            {marketSubTab === 'etf-tracker' && (
+              <EtfTrackerView
+                coins={coins}
+                currency={currency}
+                fxRates={fxRates}
+              />
+            )}
+          </div>
         )}
 
         {activeTab === 'trending' && (
@@ -525,8 +735,8 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
                           ...p.comments,
                           {
                             id: `cm-${Date.now()}`,
-                            author: 'CryptoPulser Trader',
-                            handle: '@pulser_member',
+                            author: currentUser?.displayName || 'CryptoPulser Trader',
+                            handle: currentUser?.username || '@pulser_member',
                             content,
                             timestamp: new Date().toISOString(),
                           },
@@ -696,6 +906,63 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
         onOpenProMaxModal={() => setProModalOpen(true)}
       />
 
+      <ProFilterDrawer
+        isOpen={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        coins={coins}
+        selectedNetwork={selectedNetwork}
+        filters={proFilters}
+        onApplyFilters={setProFilters}
+        onResetFilters={() => setProFilters(EMPTY_PRO_FILTERS)}
+      />
+
+      <SharePageModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        activeContextLabel={
+          activeTab === 'top1000'
+            ? marketSubTab === 'coins'
+              ? `Markets · ${selectedNetwork}`
+              : marketSubTab === 'derivatives'
+              ? 'Open Interest & Liquidations'
+              : marketSubTab === 'liquidity-map'
+              ? `Liquidity Map (${liquidityCoin?.symbol || 'BTC'})`
+              : 'Spot ETF Tracker'
+            : activeTab
+        }
+        globalStats={globalStats}
+        topCoins={filteredMarketCoins}
+        currency={currency}
+        fxRates={fxRates}
+        onNotify={(title, message) => pushToast({ title, message, kind: 'price_above' })}
+      />
+
+      <AuthModal />
+
+      <UserProfileDrawer
+        coins={coins}
+        currency={currency}
+        onChangeCurrency={setCurrency}
+        fxRates={fxRates}
+        alerts={alerts}
+        onOpenAlertCenter={() => openAlertForCoin(coins[0] || null, 'price_above')}
+      />
+
+      <SettingsModal
+        currency={currency}
+        onChangeCurrency={setCurrency}
+        fxRates={fxRates}
+        onNavigateLaunchScreen={(scr: LaunchScreenOption) => {
+          if (scr === 'Pulser Square') setActiveTab('pulser-square');
+          else if (scr === 'Whale Sonar') setActiveTab('whale-sonar');
+          else if (scr === 'Simulator') jumpToSimulator();
+          else setActiveTab('top1000');
+        }}
+        onNotify={(title, message, kind = 'price_above') =>
+          pushToast({ title, message, kind })
+        }
+      />
+
       <PrivacyLockOverlay />
     </div>
   );
@@ -766,21 +1033,23 @@ export default function App() {
   );
 
   return (
-    <PrivacyProvider isPro={isPro} onNotify={handlePrivacyNotify}>
-      <CryptoPulserApp
-        toasts={toasts}
-        pushToast={pushToast}
-        dismissToast={dismissToast}
-        setDemoPlan={setDemoPlan}
-        trialEndsAt={trialEndsAt}
-        setTrialEndsAt={setTrialEndsAt}
-        nowMs={nowMs}
-        setNowMs={setNowMs}
-        isTrialActive={isTrialActive}
-        trialDaysLeft={trialDaysLeft}
-        activePlan={activePlan}
-        isPro={isPro}
-      />
-    </PrivacyProvider>
+    <UserAccountProvider onNotify={handlePrivacyNotify}>
+      <PrivacyProvider isPro={isPro} onNotify={handlePrivacyNotify}>
+        <CryptoPulserApp
+          toasts={toasts}
+          pushToast={pushToast}
+          dismissToast={dismissToast}
+          setDemoPlan={setDemoPlan}
+          trialEndsAt={trialEndsAt}
+          setTrialEndsAt={setTrialEndsAt}
+          nowMs={nowMs}
+          setNowMs={setNowMs}
+          isTrialActive={isTrialActive}
+          trialDaysLeft={trialDaysLeft}
+          activePlan={activePlan}
+          isPro={isPro}
+        />
+      </PrivacyProvider>
+    </UserAccountProvider>
   );
 }

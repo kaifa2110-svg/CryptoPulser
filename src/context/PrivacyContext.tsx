@@ -41,10 +41,14 @@ interface PrivacyContextValue {
   recordLookup: (scope: LookupTrace['scope'], query: string) => void;
   clearLookups: () => void;
 
-  // 4. Encrypted Local Key Vault (CoinMarketCap API Key)
+  // 4. Encrypted Local Key Vault (CoinMarketCap API Key + Mandatory 4-Digit Vault PIN)
   cmcApiKey: string;
   saveCmcApiKey: (rawKey: string) => Promise<void>;
   removeCmcApiKey: () => void;
+  hasVaultPin: boolean;
+  setVaultPin: (pin: string) => boolean;
+  verifyVaultPin: (pinAttempt: string) => boolean;
+  resetVaultPinAndWipeKey: () => void;
   externalBytesSent: number;
   lastVerifiedAt: string | null;
   verifyLocalOnlyStorage: () => {
@@ -68,6 +72,7 @@ const STORAGE_KEYS = {
   pinHash: 'cp_quick_pin_hash',
   vaultData: 'cp_cmc_vault_v1',
   vaultKey: 'cp_cmc_vault_k',
+  vaultPinHash: 'cp_vault_pin_hash_v1',
   lookups: 'cp_recent_lookups',
   aiHistory: 'cp_ai_history',
   squareDraft: 'cp_square_draft',
@@ -85,10 +90,10 @@ function readJson<T>(key: string, fallback: T): T {
   }
 }
 
-function hashPinSync(pin: string): string {
-  // Deterministic salted FNV/SHA-like digest fallback for immediate verification
+function hashPinSync(pin: string, domain = 'cp-zk-pin'): string {
+  // Deterministic salted digest for local PIN verification
   let h1 = 0x811c9dc5;
-  const salted = `cp-zk-pin:${pin}:v1`;
+  const salted = `${domain}:${pin}:v1`;
   for (let i = 0; i < salted.length; i++) {
     h1 ^= salted.charCodeAt(i);
     h1 = Math.imul(h1, 0x01000193);
@@ -184,6 +189,13 @@ export const PrivacyProvider: React.FC<{
       return decodeLocalVault(cipher, salt);
     } catch {
       return '';
+    }
+  });
+  const [vaultPinHash, setVaultPinHash] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.vaultPinHash);
+    } catch {
+      return null;
     }
   });
   const [lastVerifiedAt, setLastVerifiedAt] = useState<string | null>(null);
@@ -419,6 +431,47 @@ export const PrivacyProvider: React.FC<{
     }
   }, []);
 
+  const setVaultPin = useCallback((pin: string): boolean => {
+    const clean = pin.replace(/\D/g, '').slice(0, 4);
+    if (clean.length !== 4) return false;
+    const h = hashPinSync(clean, 'cp-vault-pin');
+    setVaultPinHash(h);
+    try {
+      localStorage.setItem(STORAGE_KEYS.vaultPinHash, h);
+    } catch {
+      // Ignore
+    }
+    onNotify?.('Vault PIN Set', 'Encrypted Local Key Vault is now locked with your 4-digit PIN.', 'price_above');
+    return true;
+  }, [onNotify]);
+
+  const verifyVaultPin = useCallback(
+    (pinAttempt: string): boolean => {
+      if (!vaultPinHash) return false;
+      const clean = pinAttempt.replace(/\D/g, '').slice(0, 4);
+      if (clean.length !== 4) return false;
+      return hashPinSync(clean, 'cp-vault-pin') === vaultPinHash;
+    },
+    [vaultPinHash]
+  );
+
+  const resetVaultPinAndWipeKey = useCallback(() => {
+    setVaultPinHash(null);
+    setCmcApiKeyState('');
+    try {
+      localStorage.removeItem(STORAGE_KEYS.vaultPinHash);
+      localStorage.removeItem(STORAGE_KEYS.vaultData);
+      localStorage.removeItem(STORAGE_KEYS.vaultKey);
+    } catch {
+      // Ignore
+    }
+    onNotify?.(
+      'Vault PIN Reset & Key Wiped',
+      'Your Vault PIN and stored API key have been permanently wiped.',
+      'price_below'
+    );
+  }, [onNotify]);
+
   const verifyLocalOnlyStorage = useCallback(() => {
     const checkedAt = new Date().toLocaleTimeString();
     setLastVerifiedAt(checkedAt);
@@ -441,6 +494,7 @@ export const PrivacyProvider: React.FC<{
     try {
       localStorage.removeItem(STORAGE_KEYS.vaultData);
       localStorage.removeItem(STORAGE_KEYS.vaultKey);
+      localStorage.removeItem(STORAGE_KEYS.vaultPinHash);
       localStorage.removeItem(STORAGE_KEYS.watchlist);
       localStorage.removeItem(STORAGE_KEYS.alerts);
       localStorage.removeItem(STORAGE_KEYS.squareDraft);
@@ -451,6 +505,7 @@ export const PrivacyProvider: React.FC<{
       // Ignore
     }
     setCmcApiKeyState('');
+    setVaultPinHash(null);
     setRecentLookups([]);
     setWipeVersion((v) => v + 1);
     wipeHandlersRef.current.forEach((fn) => {
@@ -489,6 +544,10 @@ export const PrivacyProvider: React.FC<{
       cmcApiKey,
       saveCmcApiKey,
       removeCmcApiKey,
+      hasVaultPin: Boolean(vaultPinHash),
+      setVaultPin,
+      verifyVaultPin,
+      resetVaultPinAndWipeKey,
       externalBytesSent: 0,
       lastVerifiedAt,
       verifyLocalOnlyStorage,
@@ -515,6 +574,10 @@ export const PrivacyProvider: React.FC<{
       cmcApiKey,
       saveCmcApiKey,
       removeCmcApiKey,
+      vaultPinHash,
+      setVaultPin,
+      verifyVaultPin,
+      resetVaultPinAndWipeKey,
       lastVerifiedAt,
       verifyLocalOnlyStorage,
       wipeVersion,

@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   BadgeCheck,
+  ExternalLink,
   Flame,
   Hash,
   Heart,
   Image as ImageIcon,
   LineChart,
+  Link2,
   MessageCircle,
   Repeat2,
   Send,
@@ -15,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { usePrivacy } from '../context/PrivacyContext';
+import { useUserAccount } from '../context/UserAccountContext';
 import {
   Coin,
   CurrencyCode,
@@ -24,7 +27,7 @@ import {
   SquareSentiment,
 } from '../types/crypto';
 import { formatPercent, formatPrice } from '../utils/formatters';
-import { StealthValue } from './StealthText';
+import { UserAvatar } from './UserAvatar';
 
 interface PulserSquareViewProps {
   coins: Coin[];
@@ -71,6 +74,7 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
   onNotifyShare,
 }) => {
   const { incognitoMode, wipeVersion } = usePrivacy();
+  const { currentUser, setAuthModalOpen, setProfileDrawerOpen } = useUserAccount();
   const [filterTab, setFilterTab] = useState<SquareFilterTab>('For You');
   const [hashtagFilter, setHashtagFilter] = useState<string | null>(null);
 
@@ -135,13 +139,25 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
     const extractedHashtags = body.match(/#[A-Za-z0-9_]+/g) || [];
     const primaryCoin = coins.find((c) => c.symbol === selectedTags[0]) || coins[0];
 
+    const authorName = currentUser?.displayName || 'CryptoPulser Trader';
+    const authorHandle = currentUser?.username || '@pulser_member';
+    const initials =
+      authorName
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase() || '')
+        .join('') || 'CP';
+
     const newPost: SquarePost = {
       id: `sq-${Date.now()}`,
-      author: 'CryptoPulser Trader',
-      handle: '@pulser_member',
-      roleLabel: 'Community Analyst',
-      avatarInitials: 'CP',
+      authorId: currentUser?.id,
+      author: authorName,
+      handle: authorHandle,
+      roleLabel: currentUser ? 'Verified Profile' : 'Community Analyst',
+      avatarInitials: initials,
       avatarColor: '#22D3EE',
+      authorAvatarUrl: currentUser?.avatarUrl || undefined,
+      authorWebsite: currentUser?.websiteUrl || undefined,
       verified: true,
       following: true,
       timestamp: new Date().toISOString(),
@@ -205,10 +221,42 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
           onSubmit={handlePublish}
           className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101624] p-5 space-y-4"
         >
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-base font-bold text-slate-900 dark:text-white">
-              Pulser Square · Share Market Thesis
-            </h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              {currentUser ? (
+                <button
+                  type="button"
+                  onClick={() => setProfileDrawerOpen(true)}
+                  className="inline-flex items-center gap-2 hover:opacity-85 cursor-pointer"
+                >
+                  <UserAvatar
+                    displayName={currentUser.displayName}
+                    avatarUrl={currentUser.avatarUrl}
+                    avatarPresetId={currentUser.avatarPresetId}
+                    size="sm"
+                  />
+                  <div className="text-left">
+                    <h2 className="font-display text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">
+                      Pulser Square · {currentUser.displayName}
+                    </h2>
+                    <div className="text-[11px] font-mono text-cyan-500">{currentUser.username}</div>
+                  </div>
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display text-base font-bold text-slate-900 dark:text-white">
+                    Pulser Square · Share Market Thesis
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => setAuthModalOpen(true)}
+                    className="text-[11px] font-mono text-cyan-500 hover:underline cursor-pointer"
+                  >
+                    (Sign in to link profile)
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="inline-flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-0.5 text-xs">
               <button
                 type="button"
@@ -288,7 +336,7 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
                       ${primaryDraftCoin.symbol} Live Chart Snapshot
                     </div>
                     <div className="font-mono text-slate-500 dark:text-slate-400 mt-0.5">
-                      <StealthValue>{formatPrice(primaryDraftCoin.priceUsd, currency, fxRates)}</StealthValue> ·{' '}
+                      {formatPrice(primaryDraftCoin.priceUsd, currency, fxRates)} ·{' '}
                       {formatPercent(primaryDraftCoin.change24h)} (24h)
                     </div>
                   </div>
@@ -383,6 +431,13 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
           ) : (
             filteredPosts.map((post) => {
               const commentsExpanded = Boolean(openComments[post.id]);
+              const isOwnPost = Boolean(currentUser && post.authorId === currentUser.id);
+              const displayAuthor = isOwnPost && currentUser ? currentUser.displayName : post.author;
+              const displayHandle = isOwnPost && currentUser ? currentUser.username : post.handle;
+              const displayAvatarUrl = isOwnPost && currentUser ? currentUser.avatarUrl : post.authorAvatarUrl;
+              const displayPresetId = isOwnPost && currentUser ? currentUser.avatarPresetId : undefined;
+              const displayWebsite = isOwnPost && currentUser ? currentUser.websiteUrl : post.authorWebsite;
+
               return (
                 <article
                   key={post.id}
@@ -391,22 +446,31 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
                   {/* Author Header */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center font-display text-xs font-bold text-white shrink-0"
-                        style={{ backgroundColor: post.avatarColor }}
-                      >
-                        {post.avatarInitials}
-                      </div>
+                      {displayAvatarUrl || displayPresetId ? (
+                        <UserAvatar
+                          displayName={displayAuthor}
+                          avatarUrl={displayAvatarUrl}
+                          avatarPresetId={displayPresetId}
+                          size="md"
+                        />
+                      ) : (
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center font-display text-xs font-bold text-white shrink-0"
+                          style={{ backgroundColor: post.avatarColor }}
+                        >
+                          {post.avatarInitials}
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-display text-sm font-bold text-slate-900 dark:text-white">
-                            {post.author}
+                            {displayAuthor}
                           </span>
                           {post.verified && (
                             <BadgeCheck className="w-4 h-4 text-cyan-400 shrink-0" />
                           )}
                           <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
-                            {post.handle}
+                            {displayHandle}
                           </span>
                           <span className="text-slate-400" aria-hidden="true">
                             ·
@@ -415,7 +479,7 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
                             {formatRelTime(post.timestamp)}
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-2">
                           <span>{post.roleLabel}</span>
                           <span aria-hidden="true">·</span>
                           <span
@@ -427,6 +491,23 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
                           >
                             {post.sentiment === 'bullish' ? 'Bullish View' : 'Bearish View'}
                           </span>
+                          {displayWebsite && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <a
+                                href={displayWebsite}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 font-mono text-cyan-600 dark:text-cyan-400 hover:underline"
+                              >
+                                <Link2 className="w-3 h-3" />
+                                <span className="truncate max-w-[180px]">
+                                  {displayWebsite.replace(/^https?:\/\//i, '')}
+                                </span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -454,7 +535,7 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
                           {matched && (
                             <>
                               <span className="text-slate-500 dark:text-slate-400 tabular-nums">
-                                <StealthValue>{formatPrice(matched.priceUsd, currency, fxRates)}</StealthValue>
+                                {formatPrice(matched.priceUsd, currency, fxRates)}
                               </span>
                               <span
                                 className={`tabular-nums font-semibold ${

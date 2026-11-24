@@ -48,6 +48,10 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
     cmcApiKey,
     saveCmcApiKey,
     removeCmcApiKey,
+    hasVaultPin,
+    setVaultPin,
+    verifyVaultPin,
+    resetVaultPinAndWipeKey,
     externalBytesSent,
     lastVerifiedAt,
     verifyLocalOnlyStorage,
@@ -58,6 +62,11 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
   const [pinDraft, setPinDraft] = useState('');
   const [keyDraft, setKeyDraft] = useState(cmcApiKey);
   const [showKey, setShowKey] = useState(false);
+  const [vaultPinBoxOpen, setVaultPinBoxOpen] = useState(false);
+  const [vaultPinDraft, setVaultPinDraft] = useState('');
+  const [vaultPinError, setVaultPinError] = useState('');
+  const [vaultPinNotice, setVaultPinNotice] = useState('');
+  const [revealSecondsLeft, setRevealSecondsLeft] = useState(0);
   const [vaultSavedNotice, setVaultSavedNotice] = useState(false);
   const [verifiedSnapshot, setVerifiedSnapshot] = useState<{
     checkedAt: string;
@@ -69,6 +78,36 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
   useEffect(() => {
     setKeyDraft(cmcApiKey);
   }, [cmcApiKey]);
+
+  // Auto-hide revealed API key and close PIN box when dropdown closes
+  useEffect(() => {
+    if (!open) {
+      setShowKey(false);
+      setRevealSecondsLeft(0);
+      setVaultPinBoxOpen(false);
+      setVaultPinDraft('');
+      setVaultPinError('');
+      setVaultPinNotice('');
+    }
+  }, [open]);
+
+  // 15-second temporary key reveal countdown + auto-relock
+  useEffect(() => {
+    if (!showKey) {
+      setRevealSecondsLeft(0);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setRevealSecondsLeft((prev) => {
+        if (prev <= 1) {
+          setShowKey(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [showKey]);
 
   useEffect(() => {
     if (!open) return;
@@ -93,6 +132,62 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
     await saveCmcApiKey(keyDraft);
     setVaultSavedNotice(true);
     setTimeout(() => setVaultSavedNotice(false), 2500);
+  };
+
+  const handleVaultEyeClick = () => {
+    if (showKey) {
+      setShowKey(false);
+      setRevealSecondsLeft(0);
+      return;
+    }
+    setVaultPinError('');
+    setVaultPinNotice('');
+    setVaultPinDraft('');
+    setVaultPinBoxOpen((prev) => !prev);
+  };
+
+  const handleVaultPinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (vaultPinDraft.length !== 4) {
+      setVaultPinError('Enter a 4-digit numeric PIN.');
+      return;
+    }
+
+    if (!hasVaultPin) {
+      const saved = setVaultPin(vaultPinDraft);
+      if (saved) {
+        setVaultPinDraft('');
+        setVaultPinError('');
+        setVaultPinNotice('Vault PIN locked. Enter PIN to unlock key for 15s.');
+      } else {
+        setVaultPinError('PIN must be 4 digits.');
+      }
+      return;
+    }
+
+    const valid = verifyVaultPin(vaultPinDraft);
+    if (valid) {
+      setVaultPinDraft('');
+      setVaultPinError('');
+      setVaultPinNotice('');
+      setVaultPinBoxOpen(false);
+      setShowKey(true);
+      setRevealSecondsLeft(15);
+    } else {
+      setVaultPinError('Incorrect 4-digit Vault PIN.');
+      setVaultPinDraft('');
+    }
+  };
+
+  const handleResetVaultPinAndWipe = () => {
+    resetVaultPinAndWipeKey();
+    setKeyDraft('');
+    setShowKey(false);
+    setRevealSecondsLeft(0);
+    setVaultPinDraft('');
+    setVaultPinError('');
+    setVaultPinNotice('');
+    setVaultPinBoxOpen(false);
   };
 
   const handleSavePin = async (e: React.FormEvent) => {
@@ -196,7 +291,7 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
                 </kbd>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                Masks &amp; blurs balances, returns, whale flows &amp; holdings into ••••••.
+                Masks your simulator investment &amp; P&amp;L, custom alert targets &amp; searched wallet addresses (••••••).
               </p>
             </div>
             <button
@@ -401,9 +496,16 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
                 <KeyRound className="w-3.5 h-3.5 text-emerald-500" />
                 <span>Encrypted Local Key Vault</span>
               </div>
-              <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                {cmcApiKey ? 'SEALED' : 'EMPTY'}
-              </span>
+              <div className="flex items-center gap-1.5">
+                {showKey && revealSecondsLeft > 0 && (
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 font-semibold tabular-nums">
+                    UNLOCKED · {revealSecondsLeft}s
+                  </span>
+                )}
+                <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                  {hasVaultPin ? 'PIN LOCKED' : cmcApiKey ? 'SEALED' : 'EMPTY'}
+                </span>
+              </div>
             </div>
 
             <form onSubmit={handleSaveVault} className="space-y-2">
@@ -422,11 +524,12 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
                   />
                   <button
                     type="button"
-                    onClick={() => setShowKey((s) => !s)}
-                    aria-label={showKey ? 'Mask API key' : 'Reveal API key'}
+                    onClick={handleVaultEyeClick}
+                    aria-label={showKey ? 'Mask API key' : 'Enter 4-digit Vault PIN to reveal API key'}
+                    title={showKey ? 'Mask API key now' : hasVaultPin ? 'Enter 4-Digit Vault PIN to reveal' : 'Set 4-Digit Vault PIN first'}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
                   >
-                    {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {showKey ? <EyeOff className="w-3.5 h-3.5 text-amber-500" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </div>
                 <button
@@ -441,6 +544,8 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
                     onClick={() => {
                       removeCmcApiKey();
                       setKeyDraft('');
+                      setShowKey(false);
+                      setRevealSecondsLeft(0);
                     }}
                     aria-label="Remove local API key"
                     className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-rose-500 cursor-pointer"
@@ -450,6 +555,77 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
                 )}
               </div>
             </form>
+
+            {/* Mandatory 4-Digit Vault PIN Box */}
+            {vaultPinBoxOpen && !showKey && (
+              <form
+                onSubmit={handleVaultPinSubmit}
+                className="p-2.5 rounded-lg border border-cyan-500/40 bg-white/90 dark:bg-slate-900/90 space-y-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-900 dark:text-slate-100">
+                    <Lock className="w-3 h-3 text-cyan-500" />
+                    <span>{hasVaultPin ? 'Enter 4-Digit Vault PIN' : 'Set 4-Digit Vault PIN'}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVaultPinBoxOpen(false);
+                      setVaultPinError('');
+                    }}
+                    className="text-[10px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={4}
+                    autoFocus
+                    value={vaultPinDraft}
+                    onChange={(e) => {
+                      setVaultPinDraft(e.target.value.replace(/\D/g, '').slice(0, 4));
+                      setVaultPinError('');
+                    }}
+                    placeholder={hasVaultPin ? 'Enter PIN (4 digits)' : 'Create PIN (e.g. 1234)'}
+                    className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#0D1322] font-mono text-xs tracking-widest text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  />
+                  <button
+                    type="submit"
+                    disabled={vaultPinDraft.length !== 4}
+                    className="px-2.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-[11px] font-bold disabled:opacity-40 cursor-pointer whitespace-nowrap"
+                  >
+                    {hasVaultPin ? 'Unlock (15s)' : 'Lock with PIN'}
+                  </button>
+                </div>
+
+                {vaultPinError && (
+                  <div className="text-[11px] font-medium text-rose-500">{vaultPinError}</div>
+                )}
+
+                {vaultPinNotice && (
+                  <div className="text-[11px] font-medium text-emerald-500">{vaultPinNotice}</div>
+                )}
+
+                {hasVaultPin && (
+                  <div className="pt-1 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-slate-400">
+                      Forgot PIN? Reset wipes stored API key.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleResetVaultPinAndWipe}
+                      className="text-[10px] font-semibold text-rose-500 hover:underline cursor-pointer"
+                    >
+                      Reset PIN &amp; Wipe Key
+                    </button>
+                  </div>
+                )}
+              </form>
+            )}
 
             {vaultSavedNotice && (
               <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">

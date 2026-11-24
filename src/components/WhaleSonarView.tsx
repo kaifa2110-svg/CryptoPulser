@@ -45,7 +45,7 @@ export const WhaleSonarView: React.FC<WhaleSonarViewProps> = ({
   onSelectCoin,
   onOpenAlertForCoin,
 }) => {
-  const { recordLookup, wipeVersion } = usePrivacy();
+  const { stealthMode, recordLookup, wipeVersion } = usePrivacy();
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<SignalFilter>('All Signals');
   const [isStreaming, setIsStreaming] = useState(true);
@@ -116,6 +116,9 @@ export const WhaleSonarView: React.FC<WhaleSonarViewProps> = ({
     return 'text-sky-600 dark:text-sky-400';
   };
 
+  const isWalletSearch =
+    searchQuery.trim().toLowerCase().startsWith('0x') || searchQuery.trim().length >= 16;
+
   const QUICK_COINS = ['BTC', 'ETH', 'SOL', 'DOGE', 'XMR'];
 
   return (
@@ -161,14 +164,16 @@ export const WhaleSonarView: React.FC<WhaleSonarViewProps> = ({
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
-              type="text"
+              type={stealthMode && isWalletSearch ? 'password' : 'text'}
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setPage(1);
               }}
               placeholder="Search coin symbol/name (e.g. BTC, ETH, SOL, XMR, DOGE) or paste wallet address (0x...)"
-              className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className={`w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                stealthMode && isWalletSearch ? 'blur-[2px]' : ''
+              }`}
             />
             {searchQuery && (
               <button
@@ -217,10 +222,14 @@ export const WhaleSonarView: React.FC<WhaleSonarViewProps> = ({
                 : 'Global Sonar Summary'}
             </div>
             <div className="font-display text-sm font-bold text-slate-900 dark:text-white mt-0.5">
-              {summary.title}
+              {summary.mode === 'wallet' ? <StealthValue>{summary.title}</StealthValue> : summary.title}
             </div>
             <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {summary.subtitle}
+              {summary.mode === 'wallet' ? (
+                <StealthValue>{summary.subtitle}</StealthValue>
+              ) : (
+                summary.subtitle
+              )}
             </div>
           </div>
 
@@ -228,19 +237,19 @@ export const WhaleSonarView: React.FC<WhaleSonarViewProps> = ({
             <div>
               <div className="text-slate-500 dark:text-slate-400 text-[11px]">Traced Volume</div>
               <div className="font-mono tabular-nums font-bold text-slate-900 dark:text-white mt-0.5">
-                <StealthValue>{formatCompactCurrency(summary.totalVolumeUsd, currency, fxRates)}</StealthValue>
+                {formatCompactCurrency(summary.totalVolumeUsd, currency, fxRates)}
               </div>
             </div>
             <div>
               <div className="text-slate-500 dark:text-slate-400 text-[11px]">Exchange Inflow</div>
               <div className="font-mono tabular-nums font-semibold text-rose-500 mt-0.5">
-                <StealthValue>{formatCompactCurrency(summary.inflowUsd, currency, fxRates)}</StealthValue>
+                {formatCompactCurrency(summary.inflowUsd, currency, fxRates)}
               </div>
             </div>
             <div>
               <div className="text-slate-500 dark:text-slate-400 text-[11px]">Cold Outflow</div>
               <div className="font-mono tabular-nums font-semibold text-emerald-500 mt-0.5">
-                <StealthValue>{formatCompactCurrency(summary.outflowUsd, currency, fxRates)}</StealthValue>
+                {formatCompactCurrency(summary.outflowUsd, currency, fxRates)}
               </div>
             </div>
             <div>
@@ -336,11 +345,7 @@ export const WhaleSonarView: React.FC<WhaleSonarViewProps> = ({
                       >
                         {sig.symbol}{' '}
                         <span className="font-mono font-normal text-slate-500 dark:text-slate-400">
-                          {matchedCoin ? (
-                            <StealthValue>{formatPrice(matchedCoin.priceUsd, currency, fxRates)}</StealthValue>
-                          ) : (
-                            ''
-                          )}
+                          {matchedCoin ? formatPrice(matchedCoin.priceUsd, currency, fxRates) : ''}
                         </span>
                       </button>
                     </td>
@@ -348,23 +353,33 @@ export const WhaleSonarView: React.FC<WhaleSonarViewProps> = ({
                       {sig.signalType}
                     </td>
                     <td className="px-3">
-                      <div className="font-medium text-slate-800 dark:text-slate-200">{sig.walletTag}</div>
-                      <div className="font-mono text-[11px] text-slate-400">{sig.walletAddress}</div>
+                      <div className="font-medium text-slate-800 dark:text-slate-200">
+                        {summary.mode === 'wallet' ? (
+                          <StealthValue>{sig.walletTag}</StealthValue>
+                        ) : (
+                          sig.walletTag
+                        )}
+                      </div>
+                      <div className="font-mono text-[11px] text-slate-400">
+                        {summary.mode === 'wallet' ? (
+                          <StealthValue>{sig.walletAddress}</StealthValue>
+                        ) : (
+                          sig.walletAddress
+                        )}
+                      </div>
                     </td>
                     <td className="px-3">
                       <div className="font-medium text-slate-800 dark:text-slate-200">{sig.counterpartyTag}</div>
                       <div className="font-mono text-[11px] text-slate-400">{sig.counterpartyAddress}</div>
                     </td>
                     <td className="px-3 text-right font-mono tabular-nums text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                      <StealthValue>
-                        {sig.amountTokens >= 1000
-                          ? sig.amountTokens.toLocaleString('en-US', { maximumFractionDigits: 0 })
-                          : sig.amountTokens.toLocaleString('en-US', { maximumFractionDigits: 2 })}{' '}
-                        {sig.symbol}
-                      </StealthValue>
+                      {sig.amountTokens >= 1000
+                        ? sig.amountTokens.toLocaleString('en-US', { maximumFractionDigits: 0 })
+                        : sig.amountTokens.toLocaleString('en-US', { maximumFractionDigits: 2 })}{' '}
+                      {sig.symbol}
                     </td>
                     <td className="px-3 text-right font-mono tabular-nums font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                      <StealthValue>{formatCompactCurrency(sig.amountUsd, currency, fxRates)}</StealthValue>
+                      {formatCompactCurrency(sig.amountUsd, currency, fxRates)}
                     </td>
                     <td className="pl-3 pr-4 text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-1.5">
@@ -467,8 +482,7 @@ export const WhaleSonarView: React.FC<WhaleSonarViewProps> = ({
                     Sonar Trail Forensics · Block #{trailSignal.blockNumber.toLocaleString('en-US')}
                   </div>
                   <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white mt-0.5">
-                    {trailSignal.symbol} ·{' '}
-                    <StealthValue>{formatCompactCurrency(trailSignal.amountUsd, currency, fxRates)}</StealthValue>
+                    {trailSignal.symbol} · {formatCompactCurrency(trailSignal.amountUsd, currency, fxRates)}
                   </h3>
                 </div>
                 <button
@@ -517,23 +531,34 @@ export const WhaleSonarView: React.FC<WhaleSonarViewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 font-medium text-slate-900 dark:text-slate-100">
-                      <span className="truncate">{step.fromLabel}</span>
+                      <span className="truncate">
+                        {summary.mode === 'wallet' && step.step === 1 ? (
+                          <StealthValue>{step.fromLabel}</StealthValue>
+                        ) : (
+                          step.fromLabel
+                        )}
+                      </span>
                       <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span className="truncate">{step.toLabel}</span>
                     </div>
 
                     <div className="flex items-center justify-between font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                      <span>{step.fromAddress}</span>
+                      <span>
+                        {summary.mode === 'wallet' && step.step === 1 ? (
+                          <StealthValue>{step.fromAddress}</StealthValue>
+                        ) : (
+                          step.fromAddress
+                        )}
+                      </span>
                       <span>{step.toAddress}</span>
                     </div>
 
                     <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between font-mono tabular-nums text-[11px]">
                       <span className="text-slate-700 dark:text-slate-200 font-semibold">
-                        <StealthValue>{formatCompactCurrency(step.amountUsd, currency, fxRates)}</StealthValue>
+                        {formatCompactCurrency(step.amountUsd, currency, fxRates)}
                       </span>
                       <span className="text-slate-400">
-                        Tx {step.txHash.slice(0, 14)}... · Fee{' '}
-                        <StealthValue>{formatPrice(step.feeUsd, currency, fxRates)}</StealthValue>
+                        Tx {step.txHash.slice(0, 14)}... · Fee {formatPrice(step.feeUsd, currency, fxRates)}
                       </span>
                     </div>
                   </div>

@@ -2,7 +2,6 @@ import React from 'react';
 import { Bookmark, Star, ArrowRight } from 'lucide-react';
 import { Coin, CurrencyCode, FxRates } from '../types/crypto';
 import { formatCompactCurrency, formatPercent, formatPrice } from '../utils/formatters';
-import { StealthValue } from './StealthText';
 
 interface WatchlistViewProps {
   coins: Coin[];
@@ -120,7 +119,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
                   </div>
                 </td>
                 <td className="px-3 text-right font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">
-                  <StealthValue>{formatPrice(coin.priceUsd, currency, fxRates)}</StealthValue>
+                  {formatPrice(coin.priceUsd, currency, fxRates)}
                 </td>
                 <td
                   className={`px-3 text-right font-mono tabular-nums font-medium ${
@@ -141,10 +140,10 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
                   {formatPercent(coin.change7d)}
                 </td>
                 <td className="px-3 text-right font-mono tabular-nums text-slate-700 dark:text-slate-300">
-                  <StealthValue>{formatCompactCurrency(coin.marketCapUsd, currency, fxRates)}</StealthValue>
+                  {formatCompactCurrency(coin.marketCapUsd, currency, fxRates)}
                 </td>
                 <td className="pl-3 pr-4 text-right font-mono tabular-nums text-slate-600 dark:text-slate-400">
-                  <StealthValue>{formatCompactCurrency(coin.volume24hUsd, currency, fxRates)}</StealthValue>
+                  {formatCompactCurrency(coin.volume24hUsd, currency, fxRates)}
                 </td>
               </tr>
             ))}

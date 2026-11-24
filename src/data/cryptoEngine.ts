@@ -1,15 +1,172 @@
 import {
+  BlockchainNetwork,
   BubbleClusterType,
   BubbleEdge,
   BubbleNode,
   BubbleRadarGraph,
   Coin,
+  CoinContract,
+  CoinLiquidityMap,
+  EtfDailyFlowPoint,
   GlobalMarketStats,
+  LiquidityLevel,
+  ProMarketFilters,
+  SpotEtfIssuer,
   SquarePost,
   WhaleSignal,
   WhaleSignalType,
   WhaleTrailStep,
 } from '../types/crypto';
+
+export type ChainNetwork = Exclude<BlockchainNetwork, 'All Networks'>;
+
+export const BLOCKCHAIN_NETWORKS: BlockchainNetwork[] = [
+  'All Networks',
+  'Ethereum',
+  'BNB Smart Chain (BSC)',
+  'Solana',
+  'Arbitrum',
+  'Base',
+  'Polygon',
+  'Avalanche',
+  'Optimism',
+  'Tron',
+  'Sui',
+  'Aptos',
+  'TON',
+  'Cosmos',
+  'Polkadot',
+  'Cardano',
+  'Near',
+  'Fantom',
+  'Mantle',
+  'zkSync',
+  'Linea',
+  'Blast',
+  'Cronos',
+];
+
+export const CHAIN_LIST: ChainNetwork[] = BLOCKCHAIN_NETWORKS.filter(
+  (n): n is ChainNetwork => n !== 'All Networks'
+);
+
+export const EMPTY_PRO_FILTERS: ProMarketFilters = {
+  category: 'All',
+  marketCapMin: '',
+  marketCapMax: '',
+  fdvMin: '',
+  fdvMax: '',
+  change24hMin: '',
+  change24hMax: '',
+  vol24hMin: '',
+  vol24hMax: '',
+  vol24hPctMin: '',
+  vol24hPctMax: '',
+  oiMin: '',
+  oiMax: '',
+  oi24hPctMin: '',
+  oi24hPctMax: '',
+  derivVol24hMin: '',
+  derivVol24hMax: '',
+  fundingRateMin: '',
+  fundingRateMax: '',
+  longLiq24hMin: '',
+  longLiq24hMax: '',
+  shortLiq24hMin: '',
+  shortLiq24hMax: '',
+  totalLiq24hMin: '',
+  totalLiq24hMax: '',
+};
+
+const KNOWN_COIN_NETWORKS: Record<string, ChainNetwork[]> = {
+  BTC: ['Ethereum', 'Arbitrum', 'BNB Smart Chain (BSC)', 'Base', 'Solana', 'Avalanche', 'Optimism', 'Polygon'],
+  ETH: ['Ethereum', 'Arbitrum', 'Base', 'Optimism', 'Polygon', 'zkSync', 'Linea', 'Blast', 'Mantle', 'BNB Smart Chain (BSC)'],
+  USDT: ['Ethereum', 'Tron', 'BNB Smart Chain (BSC)', 'Solana', 'Arbitrum', 'Polygon', 'Avalanche', 'Optimism', 'TON', 'Near', 'Aptos', 'Mantle'],
+  USDC: ['Ethereum', 'Solana', 'Base', 'Arbitrum', 'Polygon', 'Avalanche', 'Optimism', 'Sui', 'Noble' as ChainNetwork, 'Aptos', 'zkSync', 'Linea', 'Near'].filter((n): n is ChainNetwork => (CHAIN_LIST as string[]).includes(n)),
+  SOL: ['Solana'],
+  BNB: ['BNB Smart Chain (BSC)', 'Ethereum'],
+  XRP: ['BNB Smart Chain (BSC)', 'Ethereum'],
+  ADA: ['Cardano'],
+  DOGE: ['BNB Smart Chain (BSC)', 'Ethereum'],
+  TRX: ['Tron', 'Ethereum', 'BNB Smart Chain (BSC)'],
+  AVAX: ['Avalanche', 'Ethereum', 'BNB Smart Chain (BSC)'],
+  LINK: ['Ethereum', 'Arbitrum', 'Optimism', 'Polygon', 'Base', 'Avalanche', 'BNB Smart Chain (BSC)', 'Linea', 'zkSync'],
+  SUI: ['Sui'],
+  TON: ['TON', 'Ethereum', 'BNB Smart Chain (BSC)'],
+  DOT: ['Polkadot', 'Ethereum', 'BNB Smart Chain (BSC)'],
+  UNI: ['Ethereum', 'Arbitrum', 'Optimism', 'Polygon', 'Base', 'BNB Smart Chain (BSC)'],
+  NEAR: ['Near', 'Ethereum', 'BNB Smart Chain (BSC)'],
+  ARB: ['Arbitrum', 'Ethereum'],
+  OP: ['Optimism', 'Ethereum'],
+  RENDER: ['Solana', 'Ethereum', 'Polygon'],
+  AAVE: ['Ethereum', 'Arbitrum', 'Optimism', 'Polygon', 'Base', 'Avalanche', 'Fantom', 'zkSync'],
+  TAO: ['Ethereum'],
+  INJ: ['Cosmos', 'Ethereum', 'BNB Smart Chain (BSC)'],
+  ONDO: ['Ethereum', 'Solana', 'Mantle', 'Sui', 'Polygon'],
+  TIA: ['Cosmos', 'Arbitrum', 'Neutron' as ChainNetwork].filter((n): n is ChainNetwork => (CHAIN_LIST as string[]).includes(n)),
+  APT: ['Aptos'],
+  ATOM: ['Cosmos'],
+  FTM: ['Fantom', 'Ethereum', 'BNB Smart Chain (BSC)'],
+  MNT: ['Mantle', 'Ethereum'],
+  ZK: ['zkSync', 'Ethereum'],
+  BLAST: ['Blast', 'Ethereum'],
+  CRO: ['Cronos', 'Ethereum', 'Cosmos'],
+  MATIC: ['Polygon', 'Ethereum'],
+  POL: ['Polygon', 'Ethereum'],
+  JUP: ['Solana'],
+  SHIB: ['Ethereum', 'BNB Smart Chain (BSC)'],
+  PEPE: ['Ethereum', 'Arbitrum', 'Base'],
+};
+
+const KNOWN_CONTRACTS: Record<string, CoinContract[]> = {
+  USDT: [
+    { network: 'Ethereum', address: '0xdAC17F958D2ee523a2206206994597C13D831ec7' },
+    { network: 'Tron', address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' },
+    { network: 'BNB Smart Chain (BSC)', address: '0x55d398326f99059fF775485246999027B3197955' },
+    { network: 'Solana', address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB' },
+    { network: 'Arbitrum', address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' },
+  ],
+  USDC: [
+    { network: 'Ethereum', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
+    { network: 'Solana', address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' },
+    { network: 'Base', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+    { network: 'Arbitrum', address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' },
+  ],
+  LINK: [
+    { network: 'Ethereum', address: '0x514910771AF9Ca656af840dff83E8264EcF986CA' },
+    { network: 'Arbitrum', address: '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4' },
+  ],
+  UNI: [
+    { network: 'Ethereum', address: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984' },
+    { network: 'Arbitrum', address: '0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0' },
+  ],
+  ARB: [
+    { network: 'Arbitrum', address: '0x912CE59144191C1204E64559FE8253a0e49E6548' },
+    { network: 'Ethereum', address: '0xB50721BCf8d664c30412Cfbc6cf7a15145234ad1' },
+  ],
+  OP: [
+    { network: 'Optimism', address: '0x4200000000000000000000000000000000000042' },
+  ],
+  AAVE: [
+    { network: 'Ethereum', address: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9' },
+    { network: 'Base', address: '0x63706e401c06ac8513145b7687A14804d17f814b' },
+  ],
+  ONDO: [
+    { network: 'Ethereum', address: '0xfAbA6f8e4a5E8Ab82F62fe7C39859FA577269BE3' },
+  ],
+  RENDER: [
+    { network: 'Solana', address: 'rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof' },
+    { network: 'Ethereum', address: '0x6De037ef9aD2725EB40118Bb1702EBb27e4Aeb24' },
+  ],
+  BTC: [
+    { network: 'Ethereum', address: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599' },
+    { network: 'Arbitrum', address: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f' },
+  ],
+  ETH: [
+    { network: 'Ethereum', address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' },
+    { network: 'Base', address: '0x4200000000000000000000000000000000000006' },
+  ],
+};
 
 const BASELINE_TOP_COINS: Array<Partial<Coin> & { id: string; symbol: string; name: string; priceUsd: number; marketCapUsd: number; category: string }> = [
   { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', priceUsd: 94280, marketCapUsd: 1865000000000, category: 'Layer 1', change1h: 0.34, change24h: 2.41, change7d: 6.85, change30d: 18.4, change1y: 112.5, circulatingSupply: 19785000, maxSupply: 21000000 },
@@ -84,39 +241,142 @@ function makeSparkline(price: number, change7d: number, seed: number): number[] 
   return points;
 }
 
+function makeContractAddress(network: ChainNetwork, seed: number): string {
+  const hexChars = '0123456789abcdef';
+  const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  if (network === 'Solana') {
+    let out = '';
+    for (let i = 0; i < 44; i++) {
+      out += base58Chars[Math.floor(seededRandom(seed * 17 + i) * base58Chars.length)];
+    }
+    return out;
+  }
+  if (network === 'Tron') {
+    let out = 'T';
+    for (let i = 0; i < 33; i++) {
+      out += base58Chars[Math.floor(seededRandom(seed * 23 + i) * base58Chars.length)];
+    }
+    return out;
+  }
+  let addr = '0x';
+  for (let i = 0; i < 40; i++) {
+    addr += hexChars[Math.floor(seededRandom(seed * 13 + i) * hexChars.length)];
+  }
+  return addr;
+}
+
+function hydrateCoinTelemetry(coin: Coin, index: number): Coin {
+  const sym = coin.symbol.toUpperCase();
+  const seed = hashString(`${sym}-${coin.id}-${index}`);
+  const knownNets = KNOWN_COIN_NETWORKS[sym];
+  let networks: ChainNetwork[];
+  if (knownNets && knownNets.length > 0) {
+    networks = knownNets;
+  } else {
+    const primary = CHAIN_LIST[(seed + index) % CHAIN_LIST.length];
+    const secondary = CHAIN_LIST[(seed + index * 5 + 3) % CHAIN_LIST.length];
+    const tertiary = CHAIN_LIST[(seed + index * 9 + 7) % CHAIN_LIST.length];
+    networks = Array.from(new Set([primary, secondary, ...(index % 3 === 0 ? [tertiary] : [])]));
+  }
+
+  const knownContracts = KNOWN_CONTRACTS[sym];
+  const contracts: CoinContract[] =
+    knownContracts && knownContracts.length > 0
+      ? knownContracts
+      : networks.slice(0, 2).map((net, nIdx) => ({
+          network: net,
+          address: makeContractAddress(net, seed + nIdx * 97),
+        }));
+
+  const isStable = coin.category === 'Stablecoin';
+  const volBase = Math.max(coin.volume24hUsd || 100000, 100000);
+  const vol24hChangePct = Number(
+    (((seededRandom(seed + 11) - 0.42) * 86) + coin.change24h * 1.4).toFixed(2)
+  );
+  const openInterestUsd = isStable
+    ? volBase * 0.04
+    : coin.marketCapUsd * (0.018 + seededRandom(seed + 19) * 0.068);
+  const oiChange24hPct = isStable
+    ? Number(((seededRandom(seed + 29) - 0.5) * 1.8).toFixed(2))
+    : Number(((seededRandom(seed + 29) - 0.44) * 24 + coin.change24h * 0.65).toFixed(2));
+  const derivativesVol24hUsd = isStable
+    ? volBase * 0.09
+    : volBase * (1.35 + seededRandom(seed + 37) * 2.45);
+  const fundingRatePct = isStable
+    ? 0.0005
+    : Number(((seededRandom(seed + 43) - 0.36) * 0.065 + coin.change24h * 0.0018).toFixed(4));
+
+  const liqPoolUsd = isStable
+    ? 12000
+    : Math.max(1500, openInterestUsd * (0.004 + Math.abs(coin.change24h) * 0.0016 + seededRandom(seed + 53) * 0.008));
+  const longShare =
+    coin.change24h < 0
+      ? 0.56 + seededRandom(seed + 61) * 0.28
+      : 0.22 + seededRandom(seed + 61) * 0.28;
+  const longLiq24hUsd = liqPoolUsd * longShare;
+  const shortLiq24hUsd = liqPoolUsd * (1 - longShare);
+
+  return {
+    ...coin,
+    vol24hChangePct: coin.vol24hChangePct ?? vol24hChangePct,
+    networks: coin.networks?.length ? coin.networks : networks,
+    contracts: coin.contracts?.length ? coin.contracts : contracts,
+    openInterestUsd: coin.openInterestUsd ?? openInterestUsd,
+    oiChange24hPct: coin.oiChange24hPct ?? oiChange24hPct,
+    derivativesVol24hUsd: coin.derivativesVol24hUsd ?? derivativesVol24hUsd,
+    fundingRatePct: coin.fundingRatePct ?? fundingRatePct,
+    longLiq24hUsd: coin.longLiq24hUsd ?? longLiq24hUsd,
+    shortLiq24hUsd: coin.shortLiq24hUsd ?? shortLiq24hUsd,
+    totalLiq24hUsd: coin.totalLiq24hUsd ?? longLiq24hUsd + shortLiq24hUsd,
+  };
+}
+
 export function buildTop1000Coins(liveCoins: Coin[]): {
   coins: Coin[];
   derivedGlobal: Partial<GlobalMarketStats>;
 } {
   const baseList: Coin[] =
     liveCoins.length > 0
-      ? liveCoins.map((c) => ({ ...c }))
+      ? liveCoins.map((c, idx) => hydrateCoinTelemetry({ ...c }, idx))
       : BASELINE_TOP_COINS.map((c, idx) => {
           const vol = c.marketCapUsd * (0.03 + seededRandom(idx + 7) * 0.07);
           const ch24 = c.change24h ?? 1.5;
-          return {
-            id: c.id,
-            rank: idx + 1,
-            symbol: c.symbol,
-            name: c.name,
-            category: c.category,
-            priceUsd: c.priceUsd,
-            marketCapUsd: c.marketCapUsd,
-            fdvUsd: c.marketCapUsd * 1.15,
-            volume24hUsd: vol,
-            high24hUsd: c.priceUsd * (1 + Math.abs(ch24) / 140 + 0.015),
-            low24hUsd: c.priceUsd * (1 - Math.abs(ch24) / 140 - 0.015),
-            circulatingSupply: c.circulatingSupply ?? c.marketCapUsd / c.priceUsd,
-            maxSupply: c.maxSupply ?? null,
-            change1h: c.change1h ?? 0.2,
-            change24h: ch24,
-            change7d: c.change7d ?? ch24 * 1.8,
-            change30d: c.change30d ?? ch24 * 4.2,
-            change1y: c.change1y ?? 65,
-            dominancePct: 0,
-            sparkline7d: makeSparkline(c.priceUsd, c.change7d ?? 5, idx + 1),
-            isLiveApi: false,
-          };
+          return hydrateCoinTelemetry(
+            {
+              id: c.id,
+              rank: idx + 1,
+              symbol: c.symbol,
+              name: c.name,
+              category: c.category,
+              priceUsd: c.priceUsd,
+              marketCapUsd: c.marketCapUsd,
+              fdvUsd: c.marketCapUsd * 1.15,
+              volume24hUsd: vol,
+              vol24hChangePct: 0,
+              high24hUsd: c.priceUsd * (1 + Math.abs(ch24) / 140 + 0.015),
+              low24hUsd: c.priceUsd * (1 - Math.abs(ch24) / 140 - 0.015),
+              circulatingSupply: c.circulatingSupply ?? c.marketCapUsd / c.priceUsd,
+              maxSupply: c.maxSupply ?? null,
+              change1h: c.change1h ?? 0.2,
+              change24h: ch24,
+              change7d: c.change7d ?? ch24 * 1.8,
+              change30d: c.change30d ?? ch24 * 4.2,
+              change1y: c.change1y ?? 65,
+              dominancePct: 0,
+              sparkline7d: makeSparkline(c.priceUsd, c.change7d ?? 5, idx + 1),
+              networks: [],
+              contracts: [],
+              openInterestUsd: 0,
+              oiChange24hPct: 0,
+              derivativesVol24hUsd: 0,
+              fundingRatePct: 0,
+              longLiq24hUsd: 0,
+              shortLiq24hUsd: 0,
+              totalLiq24hUsd: 0,
+              isLiveApi: false,
+            },
+            idx
+          );
         });
 
   const usedSymbols = new Set(baseList.map((c) => c.symbol.toUpperCase()));
@@ -148,29 +408,44 @@ export function buildTop1000Coins(liveCoins: Coin[]): {
     const change30d = change7d * 1.9 + (seededRandom(rank * 23) - 0.4) * 28;
     const change1y = change30d * 2.2 + (seededRandom(rank * 29) - 0.35) * 90;
 
-    baseList.push({
-      id: `${prefix.toLowerCase()}-${suffix.toLowerCase()}-${rank}`,
-      rank,
-      symbol: sym,
-      name,
-      category: CATEGORIES[rank % CATEGORIES.length],
-      priceUsd,
-      marketCapUsd: anchorMcap,
-      fdvUsd: anchorMcap * (1.1 + seededRandom(rank * 19) * 0.8),
-      volume24hUsd: anchorMcap * (0.02 + seededRandom(rank * 13) * 0.14),
-      high24hUsd: priceUsd * (1 + Math.abs(change24h) / 110 + 0.02),
-      low24hUsd: priceUsd * (1 - Math.abs(change24h) / 110 - 0.02),
-      circulatingSupply: supply,
-      maxSupply: rank % 3 === 0 ? null : Math.round(supply * (1.2 + seededRandom(rank) * 0.8)),
-      change1h,
-      change24h,
-      change7d,
-      change30d,
-      change1y,
-      dominancePct: 0,
-      sparkline7d: makeSparkline(priceUsd, change7d, rank),
-      isLiveApi: false,
-    });
+    baseList.push(
+      hydrateCoinTelemetry(
+        {
+          id: `${prefix.toLowerCase()}-${suffix.toLowerCase()}-${rank}`,
+          rank,
+          symbol: sym,
+          name,
+          category: CATEGORIES[rank % CATEGORIES.length],
+          priceUsd,
+          marketCapUsd: anchorMcap,
+          fdvUsd: anchorMcap * (1.1 + seededRandom(rank * 19) * 0.8),
+          volume24hUsd: anchorMcap * (0.02 + seededRandom(rank * 13) * 0.14),
+          vol24hChangePct: 0,
+          high24hUsd: priceUsd * (1 + Math.abs(change24h) / 110 + 0.02),
+          low24hUsd: priceUsd * (1 - Math.abs(change24h) / 110 - 0.02),
+          circulatingSupply: supply,
+          maxSupply: rank % 3 === 0 ? null : Math.round(supply * (1.2 + seededRandom(rank) * 0.8)),
+          change1h,
+          change24h,
+          change7d,
+          change30d,
+          change1y,
+          dominancePct: 0,
+          sparkline7d: makeSparkline(priceUsd, change7d, rank),
+          networks: [],
+          contracts: [],
+          openInterestUsd: 0,
+          oiChange24hPct: 0,
+          derivativesVol24hUsd: 0,
+          fundingRatePct: 0,
+          longLiq24hUsd: 0,
+          shortLiq24hUsd: 0,
+          totalLiq24hUsd: 0,
+          isLiveApi: false,
+        },
+        rank
+      )
+    );
   }
 
   const totalCap = baseList.reduce((acc, c) => acc + c.marketCapUsd, 0);
@@ -201,6 +476,92 @@ export function buildTop1000Coins(liveCoins: Coin[]): {
       altcoinSeasonIndex,
     },
   };
+}
+
+function parseOptionalNumber(val: string): number | null {
+  const trimmed = val.trim();
+  if (!trimmed) return null;
+  const num = Number(trimmed);
+  return Number.isFinite(num) ? num : null;
+}
+
+export function countActiveProFilters(f: ProMarketFilters): number {
+  let count = 0;
+  if (f.category !== 'All') count++;
+  if (f.marketCapMin.trim() || f.marketCapMax.trim()) count++;
+  if (f.fdvMin.trim() || f.fdvMax.trim()) count++;
+  if (f.change24hMin.trim() || f.change24hMax.trim()) count++;
+  if (f.vol24hMin.trim() || f.vol24hMax.trim()) count++;
+  if (f.vol24hPctMin.trim() || f.vol24hPctMax.trim()) count++;
+  if (f.oiMin.trim() || f.oiMax.trim()) count++;
+  if (f.oi24hPctMin.trim() || f.oi24hPctMax.trim()) count++;
+  if (f.derivVol24hMin.trim() || f.derivVol24hMax.trim()) count++;
+  if (f.fundingRateMin.trim() || f.fundingRateMax.trim()) count++;
+  if (f.longLiq24hMin.trim() || f.longLiq24hMax.trim()) count++;
+  if (f.shortLiq24hMin.trim() || f.shortLiq24hMax.trim()) count++;
+  if (f.totalLiq24hMin.trim() || f.totalLiq24hMax.trim()) count++;
+  return count;
+}
+
+export function applyProMarketFilters(
+  coins: Coin[],
+  network: BlockchainNetwork,
+  f: ProMarketFilters
+): Coin[] {
+  const mcapMin = parseOptionalNumber(f.marketCapMin);
+  const mcapMax = parseOptionalNumber(f.marketCapMax);
+  const fdvMin = parseOptionalNumber(f.fdvMin);
+  const fdvMax = parseOptionalNumber(f.fdvMax);
+  const ch24Min = parseOptionalNumber(f.change24hMin);
+  const ch24Max = parseOptionalNumber(f.change24hMax);
+  const volMin = parseOptionalNumber(f.vol24hMin);
+  const volMax = parseOptionalNumber(f.vol24hMax);
+  const volPctMin = parseOptionalNumber(f.vol24hPctMin);
+  const volPctMax = parseOptionalNumber(f.vol24hPctMax);
+  const oiMin = parseOptionalNumber(f.oiMin);
+  const oiMax = parseOptionalNumber(f.oiMax);
+  const oiPctMin = parseOptionalNumber(f.oi24hPctMin);
+  const oiPctMax = parseOptionalNumber(f.oi24hPctMax);
+  const derivMin = parseOptionalNumber(f.derivVol24hMin);
+  const derivMax = parseOptionalNumber(f.derivVol24hMax);
+  const fundMin = parseOptionalNumber(f.fundingRateMin);
+  const fundMax = parseOptionalNumber(f.fundingRateMax);
+  const longLiqMin = parseOptionalNumber(f.longLiq24hMin);
+  const longLiqMax = parseOptionalNumber(f.longLiq24hMax);
+  const shortLiqMin = parseOptionalNumber(f.shortLiq24hMin);
+  const shortLiqMax = parseOptionalNumber(f.shortLiq24hMax);
+  const totalLiqMin = parseOptionalNumber(f.totalLiq24hMin);
+  const totalLiqMax = parseOptionalNumber(f.totalLiq24hMax);
+
+  return coins.filter((c) => {
+    if (network !== 'All Networks' && !c.networks.includes(network)) return false;
+    if (f.category !== 'All' && c.category !== f.category) return false;
+    if (mcapMin !== null && c.marketCapUsd < mcapMin) return false;
+    if (mcapMax !== null && c.marketCapUsd > mcapMax) return false;
+    if (fdvMin !== null && c.fdvUsd < fdvMin) return false;
+    if (fdvMax !== null && c.fdvUsd > fdvMax) return false;
+    if (ch24Min !== null && c.change24h < ch24Min) return false;
+    if (ch24Max !== null && c.change24h > ch24Max) return false;
+    if (volMin !== null && c.volume24hUsd < volMin) return false;
+    if (volMax !== null && c.volume24hUsd > volMax) return false;
+    if (volPctMin !== null && c.vol24hChangePct < volPctMin) return false;
+    if (volPctMax !== null && c.vol24hChangePct > volPctMax) return false;
+    if (oiMin !== null && c.openInterestUsd < oiMin) return false;
+    if (oiMax !== null && c.openInterestUsd > oiMax) return false;
+    if (oiPctMin !== null && c.oiChange24hPct < oiPctMin) return false;
+    if (oiPctMax !== null && c.oiChange24hPct > oiPctMax) return false;
+    if (derivMin !== null && c.derivativesVol24hUsd < derivMin) return false;
+    if (derivMax !== null && c.derivativesVol24hUsd > derivMax) return false;
+    if (fundMin !== null && c.fundingRatePct < fundMin) return false;
+    if (fundMax !== null && c.fundingRatePct > fundMax) return false;
+    if (longLiqMin !== null && c.longLiq24hUsd < longLiqMin) return false;
+    if (longLiqMax !== null && c.longLiq24hUsd > longLiqMax) return false;
+    if (shortLiqMin !== null && c.shortLiq24hUsd < shortLiqMin) return false;
+    if (shortLiqMax !== null && c.shortLiq24hUsd > shortLiqMax) return false;
+    if (totalLiqMin !== null && c.totalLiq24hUsd < totalLiqMin) return false;
+    if (totalLiqMax !== null && c.totalLiq24hUsd > totalLiqMax) return false;
+    return true;
+  });
 }
 
 function hashString(str: string): number {
@@ -924,4 +1285,191 @@ export const INITIAL_SQUARE_POSTS: SquarePost[] = [
     comments: [],
   },
 ];
+
+export function buildCoinLiquidityMap(coin: Coin): CoinLiquidityMap {
+  const seed = hashString(`liq-${coin.symbol}-${coin.rank}`);
+  const mid = coin.priceUsd || 1;
+  const baseDepthScale = Math.max(180_000, coin.volume24hUsd * 0.018);
+
+  const distances = [0.2, 0.45, 0.75, 1.1, 1.5, 1.95, 2.4, 2.9, 3.5, 4.1, 4.8, 5.5];
+  const bidWallIdx = 2 + (seed % 4);
+  const askWallIdx = 3 + ((seed >> 2) % 4);
+
+  const bids: LiquidityLevel[] = [];
+  let cumBid = 0;
+  for (let i = 0; i < distances.length; i++) {
+    const dist = distances[i];
+    const isWall = i === bidWallIdx || i === bidWallIdx + 4;
+    const rawSize =
+      baseDepthScale *
+      (0.35 + seededRandom(seed + i * 17) * 0.9) *
+      (isWall ? 3.2 : 1);
+    cumBid += rawSize;
+    bids.push({
+      priceUsd: mid * (1 - dist / 100),
+      distancePct: -dist,
+      sizeUsd: rawSize,
+      cumulativeUsd: cumBid,
+      side: 'bid',
+      isWall,
+      clusterLabel: isWall
+        ? i === bidWallIdx
+          ? 'Whale Bid Wall'
+          : 'Institutional Support Shelf'
+        : i % 3 === 0
+        ? 'Limit Bid Cluster'
+        : undefined,
+    });
+  }
+
+  const asks: LiquidityLevel[] = [];
+  let cumAsk = 0;
+  for (let i = 0; i < distances.length; i++) {
+    const dist = distances[i];
+    const isWall = i === askWallIdx || i === askWallIdx + 3;
+    const rawSize =
+      baseDepthScale *
+      (0.32 + seededRandom(seed + i * 29 + 101) * 0.88) *
+      (isWall ? 3.1 : 1);
+    cumAsk += rawSize;
+    asks.push({
+      priceUsd: mid * (1 + dist / 100),
+      distancePct: dist,
+      sizeUsd: rawSize,
+      cumulativeUsd: cumAsk,
+      side: 'ask',
+      isWall,
+      clusterLabel: isWall
+        ? i === askWallIdx
+          ? 'MM Ask Resistance Wall'
+          : 'Liquidation & Supply Shelf'
+        : i % 3 === 1
+        ? 'Resting Ask Cluster'
+        : undefined,
+    });
+  }
+
+  const bidDepth2PctUsd = bids
+    .filter((b) => Math.abs(b.distancePct) <= 2.0)
+    .reduce((acc, b) => acc + b.sizeUsd, 0);
+  const askDepth2PctUsd = asks
+    .filter((a) => Math.abs(a.distancePct) <= 2.0)
+    .reduce((acc, a) => acc + a.sizeUsd, 0);
+
+  const biggestBidWall = [...bids].sort((a, b) => b.sizeUsd - a.sizeUsd)[0];
+  const biggestAskWall = [...asks].sort((a, b) => b.sizeUsd - a.sizeUsd)[0];
+
+  return {
+    coinId: coin.id,
+    symbol: coin.symbol,
+    midPriceUsd: mid,
+    spreadBps: Number((0.8 + seededRandom(seed + 5) * 3.4).toFixed(2)),
+    bidDepth2PctUsd,
+    askDepth2PctUsd,
+    biggestBidWall,
+    biggestAskWall,
+    bids,
+    asks,
+  };
+}
+
+export function buildSpotEtfData(
+  btcPriceUsd: number,
+  ethPriceUsd: number
+): {
+  btcIssuers: SpotEtfIssuer[];
+  ethIssuers: SpotEtfIssuer[];
+  dailyFlows: EtfDailyFlowPoint[];
+} {
+  const btcPrice = btcPriceUsd > 0 ? btcPriceUsd : 94280;
+  const ethPrice = ethPriceUsd > 0 ? ethPriceUsd : 3340;
+
+  const btcSpecs: Array<{
+    ticker: string;
+    name: string;
+    issuer: string;
+    feePct: number;
+    units: number;
+    flow1dM: number;
+    flow7dM: number;
+    volM: number;
+  }> = [
+    { ticker: 'IBIT', name: 'iShares Bitcoin Trust', issuer: 'BlackRock', feePct: 0.25, units: 492400, flow1dM: 318.4, flow7dM: 1420.6, volM: 2840 },
+    { ticker: 'FBTC', name: 'Fidelity Wise Origin Bitcoin Fund', issuer: 'Fidelity', feePct: 0.25, units: 198600, flow1dM: 124.8, flow7dM: 586.2, volM: 695 },
+    { ticker: 'GBTC', name: 'Grayscale Bitcoin Trust', issuer: 'Grayscale', feePct: 1.50, units: 214500, flow1dM: -42.5, flow7dM: -195.4, volM: 412 },
+    { ticker: 'ARKB', name: 'ARK 21Shares Bitcoin ETF', issuer: 'Ark / 21Shares', feePct: 0.21, units: 52800, flow1dM: 61.2, flow7dM: 218.5, volM: 215 },
+    { ticker: 'BITB', name: 'Bitwise Bitcoin ETF', issuer: 'Bitwise', feePct: 0.20, units: 43200, flow1dM: 38.9, flow7dM: 144.0, volM: 164 },
+    { ticker: 'BTC', name: 'Grayscale Bitcoin Mini Trust', issuer: 'Grayscale', feePct: 0.15, units: 39400, flow1dM: 24.6, flow7dM: 92.3, volM: 118 },
+    { ticker: 'HODL', name: 'VanEck Bitcoin Trust', issuer: 'VanEck', feePct: 0.20, units: 14800, flow1dM: 14.2, flow7dM: 51.8, volM: 68 },
+    { ticker: 'BRRR', name: 'CoinShares Valkyrie Bitcoin Fund', issuer: 'Valkyrie', feePct: 0.25, units: 9400, flow1dM: 7.4, flow7dM: 28.1, volM: 39 },
+  ];
+
+  const ethSpecs: Array<{
+    ticker: string;
+    name: string;
+    issuer: string;
+    feePct: number;
+    units: number;
+    flow1dM: number;
+    flow7dM: number;
+    volM: number;
+  }> = [
+    { ticker: 'ETHA', name: 'iShares Ethereum Trust', issuer: 'BlackRock', feePct: 0.25, units: 842000, flow1dM: 86.4, flow7dM: 364.2, volM: 412 },
+    { ticker: 'ETHE', name: 'Grayscale Ethereum Trust', issuer: 'Grayscale', feePct: 2.50, units: 1380000, flow1dM: -18.6, flow7dM: -74.8, volM: 245 },
+    { ticker: 'FETH', name: 'Fidelity Ethereum Fund', issuer: 'Fidelity', feePct: 0.25, units: 415000, flow1dM: 41.2, flow7dM: 178.9, volM: 162 },
+    { ticker: 'ETH', name: 'Grayscale Ethereum Mini Trust', issuer: 'Grayscale', feePct: 0.15, units: 468000, flow1dM: 19.5, flow7dM: 84.3, volM: 118 },
+    { ticker: 'ETHW', name: 'Bitwise Ethereum ETF', issuer: 'Bitwise', feePct: 0.20, units: 136000, flow1dM: 12.8, flow7dM: 48.2, volM: 64 },
+    { ticker: 'ETHV', name: 'VanEck Ethereum ETF', issuer: 'VanEck', feePct: 0.20, units: 48500, flow1dM: 5.1, flow7dM: 19.4, volM: 27 },
+  ];
+
+  const btcIssuers: SpotEtfIssuer[] = btcSpecs.map((s) => ({
+    ticker: s.ticker,
+    name: s.name,
+    issuer: s.issuer,
+    asset: 'BTC',
+    feePct: s.feePct,
+    aumUsd: s.units * btcPrice,
+    netFlow1dUsd: s.flow1dM * 1_000_000,
+    netFlow7dUsd: s.flow7dM * 1_000_000,
+    volume24hUsd: s.volM * 1_000_000,
+    holdingsUnits: s.units,
+  }));
+
+  const ethIssuers: SpotEtfIssuer[] = ethSpecs.map((s) => ({
+    ticker: s.ticker,
+    name: s.name,
+    issuer: s.issuer,
+    asset: 'ETH',
+    feePct: s.feePct,
+    aumUsd: s.units * ethPrice,
+    netFlow1dUsd: s.flow1dM * 1_000_000,
+    netFlow7dUsd: s.flow7dM * 1_000_000,
+    volume24hUsd: s.volM * 1_000_000,
+    holdingsUnits: s.units,
+  }));
+
+  const dailyFlows: EtfDailyFlowPoint[] = [];
+  const now = Date.now();
+  for (let i = 20; i >= 0; i--) {
+    const d = new Date(now - i * 86400000);
+    const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const s = hashString(`etf-day-${i}`);
+    const btcFlow =
+      i === 0
+        ? btcIssuers.reduce((acc, it) => acc + it.netFlow1dUsd, 0)
+        : (seededRandom(s + 3) - 0.28) * 680_000_000;
+    const ethFlow =
+      i === 0
+        ? ethIssuers.reduce((acc, it) => acc + it.netFlow1dUsd, 0)
+        : (seededRandom(s + 9) - 0.31) * 195_000_000;
+    dailyFlows.push({
+      date: label,
+      btcNetFlowUsd: btcFlow,
+      ethNetFlowUsd: ethFlow,
+    });
+  }
+
+  return { btcIssuers, ethIssuers, dailyFlows };
+}
+
 

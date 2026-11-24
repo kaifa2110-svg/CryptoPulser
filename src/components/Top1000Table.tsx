@@ -1,16 +1,27 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Bell, ChevronLeft, ChevronRight, Search, Star } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Bell,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  Star,
+} from 'lucide-react';
 import { usePrivacy } from '../context/PrivacyContext';
-import { Coin, CurrencyCode, FxRates } from '../types/crypto';
+import { BlockchainNetwork, Coin, CurrencyCode, FxRates } from '../types/crypto';
 import {
   formatCompactCurrency,
   formatPercent,
   formatPrice,
   formatSupply,
 } from '../utils/formatters';
-import { StealthValue } from './StealthText';
+import { NetworkFilterBar } from './NetworkFilterBar';
 
 interface Top1000TableProps {
+  allCoins: Coin[];
   coins: Coin[];
   currency: CurrencyCode;
   fxRates: FxRates;
@@ -18,6 +29,11 @@ interface Top1000TableProps {
   onToggleWatchlist: (coinId: string) => void;
   onSelectCoin: (coin: Coin) => void;
   onOpenAlertForCoin: (coin: Coin) => void;
+  selectedNetwork: BlockchainNetwork;
+  onSelectNetwork: (net: BlockchainNetwork) => void;
+  activeFilterCount: number;
+  onOpenFilters: () => void;
+  onResetAllFilters: () => void;
   isLoading: boolean;
 }
 
@@ -53,6 +69,7 @@ const SparklineSvg: React.FC<{ data: number[]; positive: boolean }> = ({ data, p
 };
 
 export const Top1000Table: React.FC<Top1000TableProps> = ({
+  allCoins,
   coins,
   currency,
   fxRates,
@@ -60,11 +77,15 @@ export const Top1000Table: React.FC<Top1000TableProps> = ({
   onToggleWatchlist,
   onSelectCoin,
   onOpenAlertForCoin,
+  selectedNetwork,
+  onSelectNetwork,
+  activeFilterCount,
+  onOpenFilters,
+  onResetAllFilters,
   isLoading,
 }) => {
   const { recordLookup, wipeVersion } = usePrivacy();
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [sortField, setSortField] = useState<SortField>('rank');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
@@ -83,22 +104,15 @@ export const Top1000Table: React.FC<Top1000TableProps> = ({
     return () => clearTimeout(t);
   }, [search, recordLookup]);
 
-  const categories = useMemo(() => {
-    const set = new Set<string>(['All']);
-    coins.slice(0, 120).forEach((c) => set.add(c.category));
-    return Array.from(set);
-  }, [coins]);
-
   const filteredAndSorted = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = coins.filter((c) => {
-      const matchesCategory = categoryFilter === 'All' || c.category === categoryFilter;
-      if (!matchesCategory) return false;
       if (!q) return true;
       return (
         c.name.toLowerCase().includes(q) ||
         c.symbol.toLowerCase().includes(q) ||
-        String(c.rank) === q
+        String(c.rank) === q ||
+        c.contracts.some((ct) => ct.address.toLowerCase().includes(q))
       );
     });
 
@@ -107,7 +121,7 @@ export const Top1000Table: React.FC<Top1000TableProps> = ({
       const vb = b[sortField];
       return sortDir === 'asc' ? va - vb : vb - va;
     });
-  }, [coins, search, categoryFilter, sortField, sortDir]);
+  }, [coins, search, sortField, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -135,48 +149,77 @@ export const Top1000Table: React.FC<Top1000TableProps> = ({
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101624] overflow-hidden">
       {/* Table Header Controls */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div>
-          <h2 className="font-display text-lg font-bold text-slate-900 dark:text-slate-100">
-            Top 1000 Cryptocurrencies by Market Cap
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Showing {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filteredAndSorted.length)} of{' '}
-            <span className="font-mono tabular-nums">{filteredAndSorted.length}</span> assets · Click any row for live TradingView chart & stats
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Search symbol, coin, rank..."
-              className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-56"
-            />
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800 space-y-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-bold text-slate-900 dark:text-slate-100">
+              Top 1000 Cryptocurrencies by Market Cap
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Showing {filteredAndSorted.length === 0 ? 0 : (safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filteredAndSorted.length)} of{' '}
+              <span className="font-mono tabular-nums">{filteredAndSorted.length}</span> assets · Click any row for live TradingView chart & stats
+            </p>
           </div>
 
-          <select
-            value={categoryFilter}
-            onChange={(e) => {
-              setCategoryFilter(e.target.value);
-              setPage(1);
-            }}
-            aria-label="Filter by sector"
-            className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat === 'All' ? 'All Sectors' : cat}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Filter table: symbol, name, contract..."
+                className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-56"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={onOpenFilters}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
+                activeFilterCount > 0
+                  ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+                  : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 font-mono text-[10px] font-bold">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+
+            {(activeFilterCount > 0 || selectedNetwork !== 'All Networks' || search.trim()) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  onResetAllFilters();
+                  setPage(1);
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Clear</span>
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* All Networks Selector (22+ Blockchains) */}
+        <NetworkFilterBar
+          coins={allCoins}
+          selectedNetwork={selectedNetwork}
+          onSelectNetwork={(net) => {
+            onSelectNetwork(net);
+            setPage(1);
+          }}
+        />
       </div>
 
       {/* Data Grid */}
@@ -326,7 +369,7 @@ export const Top1000Table: React.FC<Top1000TableProps> = ({
                       </div>
                     </td>
                     <td className="px-3 text-right font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                      <StealthValue>{formatPrice(coin.priceUsd, currency, fxRates)}</StealthValue>
+                      {formatPrice(coin.priceUsd, currency, fxRates)}
                     </td>
                     <td
                       className={`px-3 text-right font-mono tabular-nums whitespace-nowrap hidden sm:table-cell ${
@@ -356,15 +399,13 @@ export const Top1000Table: React.FC<Top1000TableProps> = ({
                       {formatPercent(coin.change7d)}
                     </td>
                     <td className="px-3 text-right font-mono tabular-nums text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                      <StealthValue>{formatCompactCurrency(coin.marketCapUsd, currency, fxRates)}</StealthValue>
+                      {formatCompactCurrency(coin.marketCapUsd, currency, fxRates)}
                     </td>
                     <td className="px-3 text-right font-mono tabular-nums text-slate-600 dark:text-slate-300 whitespace-nowrap hidden lg:table-cell">
-                      <StealthValue>{formatCompactCurrency(coin.volume24hUsd, currency, fxRates)}</StealthValue>
+                      {formatCompactCurrency(coin.volume24hUsd, currency, fxRates)}
                     </td>
                     <td className="px-3 text-right font-mono tabular-nums text-slate-600 dark:text-slate-400 whitespace-nowrap hidden xl:table-cell">
-                      <StealthValue>
-                        {formatSupply(coin.circulatingSupply)} {coin.symbol}
-                      </StealthValue>
+                      {formatSupply(coin.circulatingSupply)} {coin.symbol}
                     </td>
                     <td className="pl-3 pr-4 text-right hidden md:table-cell">
                       <div className="inline-flex justify-end">

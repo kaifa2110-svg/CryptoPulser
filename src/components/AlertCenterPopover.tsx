@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, CheckCircle2, Plus, Trash2, X, Zap } from 'lucide-react';
+import { usePrivacy } from '../context/PrivacyContext';
 import {
   AlertKind,
   AlertToast,
@@ -38,6 +39,7 @@ export const AlertCenterPopover: React.FC<AlertCenterPopoverProps> = ({
   onRemoveAlert,
   onTestTrigger,
 }) => {
+  const { stealthMode } = usePrivacy();
   const [selectedCoinId, setSelectedCoinId] = useState<string>(
     initialCoin?.id || coins[0]?.id || 'bitcoin'
   );
@@ -167,16 +169,18 @@ export const AlertCenterPopover: React.FC<AlertCenterPopoverProps> = ({
                     : `Target Price (${currency})`}
                 </span>
                 <span className="font-mono">
-                  Live: <StealthValue>{formatPrice(targetCoin.priceUsd, currency, fxRates)}</StealthValue>
+                  Live: {formatPrice(targetCoin.priceUsd, currency, fxRates)}
                 </span>
               </div>
               <input
-                type="number"
+                type={stealthMode ? 'password' : 'number'}
                 step="any"
                 required
                 value={thresholdInput}
                 onChange={(e) => setThresholdInput(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-mono tabular-nums text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className={`w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-mono tabular-nums text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+                  stealthMode ? 'blur-[2px]' : ''
+                }`}
               />
             </div>
 
