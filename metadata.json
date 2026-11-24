@@ -1,0 +1,8 @@
+{
+  "name": "Crypto Pulser",
+  "description": "Real-time cryptocurrency analytics terminal featuring Top 1000 live markets, USD/PKR currency switching, Historical Investment Simulator, Pulser Bubble Radar holder-network visualizer, Pulser Whale Sonar tracker, and Ask Crypto Pulser AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
