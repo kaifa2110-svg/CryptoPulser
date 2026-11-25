@@ -4,16 +4,21 @@ import {
   BarChart3,
   Coins as CoinsIcon,
   Flame,
+  Gauge,
+  Radar,
+  Sprout,
 } from 'lucide-react';
 import { AdvertiseModal } from './components/AdvertiseModal';
 import { AlertCenterPopover, AlertToastStack } from './components/AlertCenterPopover';
 import { AltcoinsIndexView } from './components/AltcoinsIndexView';
+import { AntiFomoGuardModal } from './components/AntiFomoGuardModal';
 import { AskPulserAIDrawer } from './components/AskPulserAIDrawer';
 import { AuthModal } from './components/AuthModal';
 import { BubbleRadarView } from './components/BubbleRadarView';
 import { CheckoutModal } from './components/CheckoutModal';
 import { CoinDetailModal } from './components/CoinDetailModal';
 import { DerivativesView } from './components/DerivativesView';
+import { DexScanView } from './components/DexScanView';
 import { EtfTrackerView } from './components/EtfTrackerView';
 import { InvestmentSimulator } from './components/InvestmentSimulator';
 import { LiquidityMapView } from './components/LiquidityMapView';
@@ -26,12 +31,14 @@ import { PulserSquareView } from './components/PulserSquareView';
 import { SettingsModal } from './components/SettingsModal';
 import { SharePageModal } from './components/SharePageModal';
 import { SponsoredBanner } from './components/SponsoredBanner';
+import { TechnicalIndicatorsView } from './components/TechnicalIndicatorsView';
 import { Top1000Table } from './components/Top1000Table';
 import { TopBar } from './components/TopBar';
 import { TrendingView } from './components/TrendingView';
 import { UserProfileDrawer } from './components/UserProfileDrawer';
 import { WatchlistView } from './components/WatchlistView';
 import { WhaleSonarView } from './components/WhaleSonarView';
+import { YieldView } from './components/YieldView';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { UserAccountProvider, useUserAccount } from './context/UserAccountContext';
 import {
@@ -167,6 +174,8 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
   const [alertCenterOpen, setAlertCenterOpen] = useState(false);
   const [alertTargetCoin, setAlertTargetCoin] = useState<Coin | null>(null);
   const [alertTargetKind, setAlertTargetKind] = useState<AlertKind>('price_above');
+  const [antiFomoOpen, setAntiFomoOpen] = useState(false);
+  const [antiFomoCoin, setAntiFomoCoin] = useState<Coin | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
@@ -512,6 +521,10 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
         onOpenProModal={() => setProModalOpen(true)}
         activeAlertCount={alerts.length}
         onOpenAlertCenter={() => openAlertForCoin(coins[0] || null, 'price_above')}
+        onOpenAntiFomoGuard={() => {
+          setAntiFomoCoin(coins[0] || null);
+          setAntiFomoOpen(true);
+        }}
       />
 
       <MarketToolbar
@@ -569,6 +582,21 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
                       label: 'ETF Trackers',
                       icon: <BarChart3 className="w-3.5 h-3.5" />,
                     },
+                    {
+                      id: 'yield',
+                      label: 'Yield',
+                      icon: <Sprout className="w-3.5 h-3.5" />,
+                    },
+                    {
+                      id: 'technical-indicators',
+                      label: 'Technical Indicators',
+                      icon: <Gauge className="w-3.5 h-3.5" />,
+                    },
+                    {
+                      id: 'dex-scan',
+                      label: 'DEX Scan',
+                      icon: <Radar className="w-3.5 h-3.5" />,
+                    },
                   ] as Array<{ id: MarketSubTab; label: string; icon: React.ReactNode }>
                 ).map((sub) => {
                   const active = marketSubTab === sub.id;
@@ -590,7 +618,7 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
                 })}
               </div>
 
-              <div className="hidden md:flex items-center gap-2 pr-2 text-[11px] font-mono text-slate-500 dark:text-slate-400">
+              <div className="hidden xl:flex items-center gap-2 pr-2 text-[11px] font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap shrink-0">
                 <span>Network: <strong className="text-slate-800 dark:text-slate-200">{selectedNetwork}</strong></span>
                 {activeFilterCount > 0 && (
                   <span className="text-emerald-500 font-semibold">
@@ -652,6 +680,33 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
                 coins={coins}
                 currency={currency}
                 fxRates={fxRates}
+              />
+            )}
+
+            {marketSubTab === 'yield' && (
+              <YieldView
+                coins={coins}
+                currency={currency}
+                fxRates={fxRates}
+                onSelectCoin={setDetailCoin}
+              />
+            )}
+
+            {marketSubTab === 'technical-indicators' && (
+              <TechnicalIndicatorsView
+                coins={coins}
+                currency={currency}
+                fxRates={fxRates}
+                onSelectCoin={setDetailCoin}
+              />
+            )}
+
+            {marketSubTab === 'dex-scan' && (
+              <DexScanView
+                coins={coins}
+                currency={currency}
+                fxRates={fxRates}
+                onSelectCoin={setDetailCoin}
               />
             )}
           </div>
@@ -841,6 +896,20 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
           setActiveTab('bubble-radar');
         }}
         onOpenAlertForCoin={(c) => openAlertForCoin(c, 'price_above')}
+        onOpenAntiFomoGuard={(c) => {
+          setAntiFomoCoin(c);
+          setAntiFomoOpen(true);
+        }}
+      />
+
+      <AntiFomoGuardModal
+        isOpen={antiFomoOpen}
+        onClose={() => setAntiFomoOpen(false)}
+        coins={coins}
+        initialCoin={antiFomoCoin}
+        currency={currency}
+        fxRates={fxRates}
+        onOpenCoinDetail={(c) => setDetailCoin(c)}
       />
 
       <ProPricingModal
@@ -927,6 +996,12 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
               ? 'Open Interest & Liquidations'
               : marketSubTab === 'liquidity-map'
               ? `Liquidity Map (${liquidityCoin?.symbol || 'BTC'})`
+              : marketSubTab === 'yield'
+              ? 'DeFi Staking & Lending Yield'
+              : marketSubTab === 'technical-indicators'
+              ? 'Technical Indicators Screener'
+              : marketSubTab === 'dex-scan'
+              ? 'On-Chain DEX Pair Scanner'
               : 'Spot ETF Tracker'
             : activeTab
         }

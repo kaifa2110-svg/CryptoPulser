@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { BlockchainNetwork, Coin, CurrencyCode, FxRates } from '../types/crypto';
 import { formatCompactCurrency, formatPercent, formatPrice } from '../utils/formatters';
+import { CoinLogo } from './CoinLogo';
 import { NetworkFilterBar } from './NetworkFilterBar';
 
 interface DerivativesViewProps {
@@ -438,18 +439,7 @@ export const DerivativesView: React.FC<DerivativesViewProps> = ({
                     </td>
                     <td className="px-3">
                       <div className="flex items-center gap-2">
-                        {coin.image ? (
-                          <img
-                            src={coin.image}
-                            alt={coin.symbol}
-                            referrerPolicy="no-referrer"
-                            className="w-5 h-5 rounded-full shrink-0"
-                          />
-                        ) : (
-                          <div className="w-5 h-5 rounded-full shrink-0 bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-mono text-[9px] font-bold">
-                            {coin.symbol.slice(0, 2)}
-                          </div>
-                        )}
+                        <CoinLogo coin={coin} size="sm" />
                         <span className="font-semibold text-slate-900 dark:text-slate-100">
                           {coin.symbol}PERP
                         </span>

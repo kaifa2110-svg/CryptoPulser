@@ -18,6 +18,7 @@ import {
   formatPrice,
   formatSupply,
 } from '../utils/formatters';
+import { CoinLogo } from './CoinLogo';
 import { NetworkFilterBar } from './NetworkFilterBar';
 
 interface Top1000TableProps {
@@ -341,18 +342,7 @@ export const Top1000Table: React.FC<Top1000TableProps> = ({
                     </td>
                     <td className="px-3">
                       <div className="flex items-center gap-2.5 min-w-[150px]">
-                        {coin.image ? (
-                          <img
-                            src={coin.image}
-                            alt={coin.symbol}
-                            referrerPolicy="no-referrer"
-                            className="w-6 h-6 rounded-full shrink-0 bg-slate-800"
-                          />
-                        ) : (
-                          <div className="w-6 h-6 rounded-full shrink-0 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center font-mono text-[10px] font-bold">
-                            {coin.symbol.slice(0, 2)}
-                          </div>
-                        )}
+                        <CoinLogo coin={coin} size="md" />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[130px]">

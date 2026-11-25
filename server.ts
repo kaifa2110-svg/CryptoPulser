@@ -602,6 +602,46 @@ async function startServer() {
     return mapped;
   }
 
+  async function callPollinationsTextAi(
+    systemInstruction: string,
+    history: Array<{ role: 'user' | 'assistant'; content: string }>
+  ): Promise<string | null> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    try {
+      const sanitizedTurns = history
+        .slice(-24)
+        .filter((m) => typeof m.content === 'string' && m.content.trim().length > 0)
+        .map((m) => ({
+          role: m.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+          content: m.content.trim(),
+        }));
+
+      const res = await fetch('https://text.pollinations.ai/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'system', content: systemInstruction }, ...sanitizedTurns],
+          model: 'openai',
+          seed: 42,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) return null;
+      const text = (await res.text()).trim();
+      if (!text || /^<!doctype|^<html/i.test(text)) {
+        return null;
+      }
+      return text;
+    } catch (err) {
+      console.warn('[AskPulserAI] Pollinations Text API error:', err instanceof Error ? err.message : String(err));
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
   app.post('/api/ai/chat', async (req, res) => {
     const { userPrompt, messages, marketContext, copilotMode } = req.body as {
       userPrompt?: string;
@@ -621,24 +661,6 @@ async function startServer() {
       (userPrompt && userPrompt.trim()) ||
       [...messages].reverse().find((m) => m.role === 'user')?.content?.trim() ||
       '';
-
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
-    if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
-      return res.status(503).json({
-        errorCode: 'MISSING_API_KEY',
-        error:
-          'Gemini API key is not configured. Add GEMINI_API_KEY in AI Studio Settings > Secrets to enable live conversational AI.',
-      });
-    }
-
-    const ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
-      },
-    });
 
     const modeInstructions: Record<string, string> = {
       basic:
@@ -662,7 +684,7 @@ async function startServer() {
 ${activeModeNote}
 How to respond:
 - Engage in natural, intelligent, multi-turn conversation (like ChatGPT/Gemini). Remember prior messages in the conversation history so follow-up questions ("why?", "compare it with Solana", "what about its tokenomics?", "explain that simpler") work seamlessly.
-- You can research and explain ANY cryptocurrency, emerging protocol, DeFi mechanism, tokenomics, cryptography/privacy project (e.g., Arcium ARX, Solana, Bitcoin, Layer 2s, trading strategies, macro catalysts), even if that coin is NOT in the Top 50 table below.
+- You can research and explain ANY cryptocurrency, emerging protocol, DeFi mechanism, tokenomics, cryptography/privacy project (e.g., Arcium ARX, Monad, Hyperliquid, Solana, Bitcoin, Layer 2s, trading strategies, macro catalysts), even if that coin is NOT in the Top 50 table below.
 - Whenever a coin or metric IS present in the Live Dashboard Context JSON below (top50Coins, matchedQueryCoins, globalMarket, userWatchlist, whaleSonarSummary, bubbleConcentrationSnapshot, latestNews), ground your numbers accurately in that live data and format prices in the user's selectedCurrency (mentioning USD equivalents when helpful).
 - If the user asks about a token not present in the live table, answer thoroughly using your blockchain/crypto knowledge and transparently note that live spot price telemetry for that ticker is not currently in the Top 50 feed.
 - Keep answers clear, well-structured, insightful, and non-advisory (never guarantee financial returns and never invent fake live prices or fake wallet hashes).
@@ -670,88 +692,78 @@ How to respond:
 Live Dashboard Context:
 ${JSON.stringify(marketContext ?? {})}`;
 
-    const conversationHistory = normalizeConversationHistory(messages, lastUserMessage);
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (apiKey && apiKey !== 'MY_GEMINI_API_KEY') {
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
 
-    const modelCandidates = ['gemini-4-hydrogen', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
-    let lastError: unknown = null;
+      const conversationHistory = normalizeConversationHistory(messages, lastUserMessage);
+      const modelCandidates = ['gemini-4-hydrogen', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
 
-    for (const modelName of modelCandidates) {
-      let shouldTryNextModel = false;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        if (attempt > 0) {
-          await sleep(450);
-        }
-        try {
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: conversationHistory,
-            config: {
-              systemInstruction,
-            },
-          });
-
-          const reply = response.text?.trim();
-          if (reply) {
-            return res.json({
-              reply,
-              engine: 'gemini',
-              modelUsed: modelName,
+      for (const modelName of modelCandidates) {
+        let shouldTryNextModel = false;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          if (attempt > 0) {
+            await sleep(400);
+          }
+          try {
+            const response = await ai.models.generateContent({
+              model: modelName,
+              contents: conversationHistory,
+              config: {
+                systemInstruction,
+              },
             });
-          }
-          lastError = new Error('Empty response returned by Gemini.');
-        } catch (err) {
-          lastError = err;
-          const msg = err instanceof Error ? err.message : String(err);
-          console.warn(`[AskPulserAI] ${modelName} attempt ${attempt + 1} error:`, msg);
-          if (/NOT_FOUND|404/i.test(msg)) {
-            shouldTryNextModel = true;
-            break;
-          }
-          // Do not retry auth/key/bad-request errors
-          if (/API_KEY_INVALID|PERMISSION_DENIED|401|403|400/i.test(msg)) {
-            shouldTryNextModel = false;
-            break;
-          }
-          // On transient 503/high demand after final retry, try next model candidate
-          if (attempt === 1) {
-            shouldTryNextModel = true;
+
+            const reply = response.text?.trim();
+            if (reply) {
+              return res.json({
+                reply,
+                engine: 'gemini',
+                modelUsed: modelName,
+              });
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.warn(`[AskPulserAI] ${modelName} attempt ${attempt + 1} error:`, msg);
+            if (/NOT_FOUND|404/i.test(msg)) {
+              shouldTryNextModel = true;
+              break;
+            }
+            if (/API_KEY_INVALID|PERMISSION_DENIED|401|403|400/i.test(msg)) {
+              shouldTryNextModel = false;
+              break;
+            }
+            if (attempt === 1) {
+              shouldTryNextModel = true;
+            }
           }
         }
-      }
-      if (!shouldTryNextModel) {
-        break;
+        if (!shouldTryNextModel) {
+          break;
+        }
       }
     }
 
-    const errMsg = lastError instanceof Error ? lastError.message : String(lastError ?? '');
-    console.error('[AskPulserAI] Gemini error:', errMsg);
-
-    if (/API_KEY_INVALID|PERMISSION_DENIED|403|401/i.test(errMsg)) {
-      return res.status(401).json({
-        errorCode: 'INVALID_API_KEY',
-        error:
-          'Gemini API key is invalid or lacks permission. Please verify GEMINI_API_KEY in AI Studio Settings > Secrets.',
-      });
-    }
-    if (/RESOURCE_EXHAUSTED|429|quota/i.test(errMsg)) {
-      return res.status(429).json({
-        errorCode: 'RATE_LIMIT',
-        error:
-          'Gemini API rate limit reached. Please wait a moment before sending another message, or check your quota in Settings > Secrets.',
-      });
-    }
-    if (/NOT_FOUND|404/i.test(errMsg)) {
-      return res.status(404).json({
-        errorCode: 'MODEL_NOT_FOUND',
-        error:
-          'The Gemini model was unavailable for the configured API key.',
+    // Zero-key live AI fallback via Pollinations Text API
+    const pollinationsReply = await callPollinationsTextAi(systemInstruction, messages);
+    if (pollinationsReply) {
+      return res.json({
+        reply: pollinationsReply,
+        engine: 'gemini',
+        modelUsed: 'pollinations-openai',
       });
     }
 
     return res.status(503).json({
       errorCode: 'UPSTREAM_UNAVAILABLE',
-      error:
-        'Gemini AI is temporarily busy or unreachable right now. Please try again in a moment.',
+      error: 'Live AI endpoint temporarily unreachable.',
     });
   });
 

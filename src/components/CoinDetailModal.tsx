@@ -5,6 +5,7 @@ import {
   CandlestickChart,
   LineChart,
   Radar,
+  ShieldAlert,
   Star,
   TrendingUp,
   X,
@@ -18,6 +19,7 @@ import {
   formatPrice,
   formatSupply,
 } from '../utils/formatters';
+import { CoinLogo } from './CoinLogo';
 
 interface CoinDetailModalProps {
   coin: Coin | null;
@@ -30,6 +32,7 @@ interface CoinDetailModalProps {
   onSimulateCoin: (coin: Coin) => void;
   onInspectBubbleRadar: (coin: Coin) => void;
   onOpenAlertForCoin: (coin: Coin) => void;
+  onOpenAntiFomoGuard?: (coin: Coin) => void;
 }
 
 type ChartMode = 'tradingview' | 'cmc';
@@ -46,6 +49,7 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
   onSimulateCoin,
   onInspectBubbleRadar,
   onOpenAlertForCoin,
+  onOpenAntiFomoGuard,
 }) => {
   const { recordLookup } = usePrivacy();
   const [chartMode, setChartMode] = useState<ChartMode>('tradingview');
@@ -146,18 +150,7 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
         {/* Modal Header */}
         <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            {coin.image ? (
-              <img
-                src={coin.image}
-                alt={coin.symbol}
-                referrerPolicy="no-referrer"
-                className="w-10 h-10 rounded-full bg-slate-800"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-100 flex items-center justify-center font-mono text-sm font-bold">
-                {coin.symbol.slice(0, 3)}
-              </div>
-            )}
+            <CoinLogo coin={coin} size="lg" />
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="font-display text-xl font-bold text-slate-900 dark:text-slate-50">
@@ -224,6 +217,19 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
               <TrendingUp className="w-3.5 h-3.5" />
               <span>Simulate ROI</span>
             </button>
+            {onOpenAntiFomoGuard && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenAntiFomoGuard(coin);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-amber-500/45 bg-amber-500/10 hover:bg-amber-500/20 text-xs font-semibold text-amber-700 dark:text-amber-300 cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+                <span>Anti-FOMO Guard</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {

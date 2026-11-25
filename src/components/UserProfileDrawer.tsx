@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Coins,
   ExternalLink,
-  Gem,
   Gift,
   Globe,
   HelpCircle,
@@ -49,7 +48,6 @@ type DrawerSection =
   | 'overview'
   | 'edit'
   | 'converter'
-  | 'diamonds'
   | 'airdrops'
   | 'settings'
   | 'help';
@@ -119,7 +117,6 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
     btcDisplayMode,
     setBtcDisplayMode,
     updateProfile,
-    claimDailyDiamonds,
     toggleTrackAirdrop,
     openSettingsModal,
     logout,
@@ -167,10 +164,6 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
   );
 
   if (!profileDrawerOpen || !currentUser) return null;
-
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const alreadyCheckedInToday = currentUser.lastCheckInDate === todayStr;
-  const nextReward = Math.min(50, 10 + (currentUser.streakDays % 7) * 5);
 
   const triggeredAlert = alerts.find((a) => Boolean(a.triggeredAt));
   const latestAlert = triggeredAlert ?? alerts[0];
@@ -242,8 +235,6 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                 ? 'Edit Profile & Social Link'
                 : section === 'converter'
                 ? 'Instant Asset Converter'
-                : section === 'diamonds'
-                ? 'Pulser Diamonds Rewards'
                 : section === 'airdrops'
                 ? 'Airdrop Tracker'
                 : section === 'settings'
@@ -359,82 +350,69 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                 <ChevronRight className="w-4 h-4 text-cyan-500 shrink-0" />
               </button>
 
-              {/* 4 Quick-Action Tiles (CMC Mobile Profile Style) */}
-              <div className="grid grid-cols-2 gap-2.5">
+              {/* 3 Quick-Action Tiles */}
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     setProfileDrawerOpen(false);
                     onOpenAlertCenter();
                   }}
-                  className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#11182A] hover:border-cyan-500/50 p-3.5 text-left transition-colors cursor-pointer"
+                  className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#11182A] hover:border-cyan-500/50 p-3 text-left transition-colors cursor-pointer flex flex-col justify-between"
                 >
-                  <div className="flex items-center justify-between">
-                    <Bell className="w-4 h-4 text-cyan-500" />
-                    <span className="font-mono text-[11px] font-bold text-cyan-500">
-                      {alerts.length} active
+                  <div className="flex items-center justify-between gap-1">
+                    <Bell className="w-4 h-4 text-cyan-500 shrink-0" />
+                    <span className="font-mono text-[10px] font-bold text-cyan-500 tabular-nums">
+                      {alerts.length}
                     </span>
                   </div>
-                  <div className="mt-2 text-xs font-bold text-slate-900 dark:text-slate-100">
-                    Price Alerts
-                  </div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                    Targets & Whale pings
+                  <div className="mt-2.5">
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                      Price Alerts
+                    </div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                      Targets &amp; pings
+                    </div>
                   </div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setSection('converter')}
-                  className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#11182A] hover:border-emerald-500/50 p-3.5 text-left transition-colors cursor-pointer"
+                  className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#11182A] hover:border-emerald-500/50 p-3 text-left transition-colors cursor-pointer flex flex-col justify-between"
                 >
-                  <div className="flex items-center justify-between">
-                    <ArrowLeftRight className="w-4 h-4 text-emerald-500" />
-                    <span className="font-mono text-[10px] text-slate-400">Live FX</span>
+                  <div className="flex items-center justify-between gap-1">
+                    <ArrowLeftRight className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span className="font-mono text-[10px] text-slate-400">FX</span>
                   </div>
-                  <div className="mt-2 text-xs font-bold text-slate-900 dark:text-slate-100">
-                    Converter
-                  </div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                    Crypto ↔ {currency} / BTC
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSection('diamonds')}
-                  className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#11182A] hover:border-sky-500/50 p-3.5 text-left transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center justify-between">
-                    <Gem className="w-4 h-4 text-sky-400" />
-                    <span className="font-mono text-[11px] font-bold text-sky-400">
-                      {currentUser.diamonds} 💎
-                    </span>
-                  </div>
-                  <div className="mt-2 text-xs font-bold text-slate-900 dark:text-slate-100">
-                    Pulser Diamonds
-                  </div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                    {alreadyCheckedInToday ? 'Checked in today' : `Claim +${nextReward} today`}
+                  <div className="mt-2.5">
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                      Converter
+                    </div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                      {currency} / BTC
+                    </div>
                   </div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setSection('airdrops')}
-                  className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#11182A] hover:border-violet-500/50 p-3.5 text-left transition-colors cursor-pointer"
+                  className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#11182A] hover:border-violet-500/50 p-3 text-left transition-colors cursor-pointer flex flex-col justify-between"
                 >
-                  <div className="flex items-center justify-between">
-                    <Gift className="w-4 h-4 text-violet-400" />
-                    <span className="font-mono text-[11px] font-bold text-violet-400">
-                      {currentUser.claimedAirdropIds.length} tracked
+                  <div className="flex items-center justify-between gap-1">
+                    <Gift className="w-4 h-4 text-violet-400 shrink-0" />
+                    <span className="font-mono text-[10px] font-bold text-violet-400 tabular-nums">
+                      {currentUser.claimedAirdropIds.length}
                     </span>
                   </div>
-                  <div className="mt-2 text-xs font-bold text-slate-900 dark:text-slate-100">
-                    Airdrop Tracker
-                  </div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                    {AIRDROPS.length} active ecosystems
+                  <div className="mt-2.5">
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                      Airdrop Tracker
+                    </div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                      {AIRDROPS.length} active
+                    </div>
                   </div>
                 </button>
               </div>
@@ -758,59 +736,6 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
             </div>
           )}
 
-          {/* PULSER DIAMONDS SECTION */}
-          {section === 'diamonds' && (
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-sky-500/35 bg-gradient-to-br from-sky-500/15 to-cyan-500/5 p-5 text-center space-y-2">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-sky-500/20 text-sky-400 mx-auto">
-                  <Gem className="w-6 h-6" />
-                </div>
-                <div className="font-mono text-3xl font-bold text-slate-900 dark:text-white">
-                  {currentUser.diamonds} 💎
-                </div>
-                <p className="text-xs text-slate-600 dark:text-slate-300">
-                  Current Check-In Streak: <strong>{currentUser.streakDays} Day(s)</strong>
-                </p>
-
-                <button
-                  type="button"
-                  disabled={alreadyCheckedInToday}
-                  onClick={claimDailyDiamonds}
-                  className={`mt-2 w-full py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                    alreadyCheckedInToday
-                      ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 cursor-not-allowed'
-                      : 'bg-sky-500 hover:bg-sky-400 text-slate-950'
-                  }`}
-                >
-                  {alreadyCheckedInToday
-                    ? '✓ Today’s Diamonds Collected'
-                    : `Collect Today's +${nextReward} Diamonds`}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-7 gap-1.5">
-                {Array.from({ length: 7 }).map((_, idx) => {
-                  const dayNum = idx + 1;
-                  const collected = dayNum <= currentUser.streakDays;
-                  const amt = Math.min(50, 10 + idx * 5);
-                  return (
-                    <div
-                      key={dayNum}
-                      className={`rounded-xl p-2 text-center border ${
-                        collected
-                          ? 'border-sky-500 bg-sky-500/15 text-sky-400'
-                          : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-400'
-                      }`}
-                    >
-                      <div className="text-[9px] font-mono">D{dayNum}</div>
-                      <div className="text-[11px] font-mono font-bold mt-1">+{amt}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* AIRDROP TRACKER SECTION */}
           {section === 'airdrops' && (
             <div className="space-y-3">
@@ -932,7 +857,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                   Local-First Account Storage
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Your CryptoPulser profile, uploaded avatar, website link, Pulser Diamonds, and tracked airdrops are saved locally in browser storage and sync live with your Pulser Square posts.
+                  Your CryptoPulser profile, uploaded avatar, website link, and tracked airdrops are saved locally in browser storage and sync live with your Pulser Square posts.
                 </p>
               </div>
             </div>

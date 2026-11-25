@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Clock, Crown, LogIn, Sparkles } from 'lucide-react';
+import { Bell, Clock, Crown, LogIn, ShieldAlert, Sparkles } from 'lucide-react';
 import { useUserAccount } from '../context/UserAccountContext';
 import { CurrencyCode, FxRates, NavTab, PlanTier } from '../types/crypto';
 import { formatProMonthlyPrice } from '../utils/formatters';
@@ -19,6 +19,7 @@ interface TopBarProps {
   onOpenProModal: () => void;
   activeAlertCount: number;
   onOpenAlertCenter: () => void;
+  onOpenAntiFomoGuard: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -33,6 +34,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenProModal,
   activeAlertCount,
   onOpenAlertCenter,
+  onOpenAntiFomoGuard,
 }) => {
   const { currentUser, setAuthModalOpen, setProfileDrawerOpen } = useUserAccount();
   const proPriceLabel = formatProMonthlyPrice(currency, fxRates);
@@ -107,8 +109,19 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
         </nav>
 
-        {/* Zone 3: Local & Private Suite + Alert Bell + Primary Pro / Pro Max / Trial CTA */}
+        {/* Zone 3: Anti-FOMO Guard + Local & Private Suite + Alert Bell + Primary CTA */}
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onOpenAntiFomoGuard}
+            title="Pulser Anti-FOMO & Break-Even Guard™"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-amber-500/45 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span className="hidden xl:inline">Anti-FOMO Guard</span>
+            <span className="hidden sm:inline xl:hidden">Anti-FOMO</span>
+          </button>
+
           <PrivacyShieldControl isPro={isPro} onOpenProModal={onOpenProModal} />
 
           <button

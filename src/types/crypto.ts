@@ -35,7 +35,10 @@ export type MarketSubTab =
   | 'coins'
   | 'derivatives'
   | 'liquidity-map'
-  | 'etf-tracker';
+  | 'etf-tracker'
+  | 'yield'
+  | 'technical-indicators'
+  | 'dex-scan';
 
 export type BlockchainNetwork =
   | 'All Networks'

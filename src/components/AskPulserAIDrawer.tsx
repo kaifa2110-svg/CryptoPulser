@@ -10,7 +10,6 @@ import {
   RotateCcw,
   Send,
   Sparkles,
-  WifiOff,
   X,
 } from 'lucide-react';
 import { usePrivacy } from '../context/PrivacyContext';
@@ -111,16 +110,16 @@ const COPILOT_MODES: Array<{
 
 const STARTER_PROMPTS = [
   'Summarize today’s top movers and BTC dominance',
-  'How does the Altcoin Season Index look right now?',
+  'What is Arcium (ARX) and how does it work?',
   'Analyze my watchlist coins and risk profile',
-  'Compare Top 5 coins in selected currency and USD',
+  'Compare ETH vs SOL in selected currency and USD',
 ];
 
 const WELCOME_MESSAGE: AiChatMessage = {
   id: 'welcome',
   role: 'assistant',
   content:
-    'Ask Crypto Pulser AI is connected to your live market feed. Free & Pro include 5 basic queries/day; Pulser Pro Max unlocks Unlimited queries and all 4 AI Copilot suites.',
+    'Ask Crypto Pulser AI is connected to your live market feed. Ask about any coin (even emerging tokens), compare assets, or explore setups—Free & Pro include 5 basic queries/day; Pulser Pro Max unlocks Unlimited queries and all 4 AI Copilot suites.',
   timestamp: new Date().toISOString(),
 };
 
@@ -155,7 +154,6 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
   const [copilotMode, setCopilotMode] = useState<AiCopilotMode>('basic');
   const [dailyUsed, setDailyUsed] = useState<number>(() => readDailyUsage());
   const [isSending, setIsSending] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiChatMessage[]>(() => readStoredAiHistory());
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -167,7 +165,6 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
     if (wipeVersion === 0) return;
     setMessages([{ ...WELCOME_MESSAGE, timestamp: new Date().toISOString() }]);
     setInput('');
-    setErrorMsg(null);
   }, [wipeVersion]);
 
   useEffect(() => {
@@ -183,7 +180,7 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isOpen, isSending, errorMsg]);
+  }, [messages, isOpen, isSending]);
 
   useEffect(() => {
     if (!isProMax && copilotMode !== 'basic') {
@@ -300,6 +297,59 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
     };
   };
 
+  const buildPollinationsSystemPrompt = (
+    targetMode: AiCopilotMode,
+    ctx: ReturnType<typeof buildLiveContext>
+  ): string => {
+    const modeNoteMap: Record<AiCopilotMode, string> = {
+      basic: 'Conversational Market & Crypto Research Q&A. Answer naturally and helpfully.',
+      trade_signal:
+        'AI Trade Signal & Entry/Exit Copilot. Provide structured technical setups grounded in live prices and 24h Low/High ranges (Entry Band, Support, Resistance, Stop-Loss, TP1/TP2, Risk-Reward Ratio).',
+      whale_anomaly:
+        'AI Whale & Bubble Anomaly Detector. Analyze exchange inflows vs cold storage outflows, smart money flows, and holder centralization risk.',
+      portfolio_advisor:
+        'AI Portfolio Risk & Rebalance Advisor. Evaluate watchlist allocation, score Portfolio Health (0-100), and suggest balanced weights.',
+      sentiment_digest:
+        'AI Market Sentiment & News Digest. Synthesize Fear & Greed, Altcoin Season Index, BTC/ETH dominance, and top headlines.',
+    };
+
+    const topTickerLine = ctx.top50Coins
+      .slice(0, 20)
+      .map((c) => `${c.symbol}: ${c.priceFormatted} (${c.change24h} 24h)`)
+      .join(' | ');
+
+    const matchedLine =
+      ctx.matchedQueryCoins.length > 0
+        ? ctx.matchedQueryCoins
+            .map(
+              (c) =>
+                `${c.name} (${c.symbol}, #${c.rank}): ${c.priceFormatted} | 24h ${c.change24h} | 7d ${c.change7d} | Low ${c.low24hFormatted} / High ${c.high24hFormatted} | MCap ${c.marketCap} | Vol ${c.volume24h}`
+            )
+            .join('\n')
+        : 'None specifically matched in Top 1000.';
+
+    return [
+      `You are Crypto Pulser AI, an expert multi-turn conversational cryptocurrency analyst and researcher inside CryptoPulser.com.`,
+      `Active Copilot Mode: ${modeNoteMap[targetMode]}`,
+      `User Selected Currency: ${currency} (format prices in ${currency} and mention USD equivalents when helpful).`,
+      `Global Snapshot: MCap ${ctx.globalMarket.totalMarketCap} (${ctx.globalMarket.marketCapChange24h} 24h), Vol ${ctx.globalMarket.volume24h}, BTC Dom ${ctx.globalMarket.btcDominance}, ETH Dom ${ctx.globalMarket.ethDominance}, Fear & Greed ${ctx.globalMarket.fearGreed}, Altcoin Season ${ctx.globalMarket.altcoinSeasonIndex}.`,
+      `Top 20 Live Prices: ${topTickerLine}`,
+      `Matched Query Coins:\n${matchedLine}`,
+      ctx.userWatchlist.length > 0
+        ? `User Watchlist: ${ctx.userWatchlist.map((c) => `${c.symbol} (${c.priceFormatted}, ${c.change24h})`).join(', ')}`
+        : '',
+      ctx.whaleSonarSummary
+        ? `Whale Sonar (${ctx.whaleSonarSummary.scopedSymbol}): Bias ${ctx.whaleSonarSummary.netBiasLabel}, Total $${Math.round(ctx.whaleSonarSummary.totalVolumeUsd / 1e6)}M`
+        : '',
+      ctx.latestNews.length > 0
+        ? `Latest Headlines: ${ctx.latestNews.slice(0, 4).map((n) => `${n.title} (${n.source})`).join(' | ')}`
+        : '',
+      `Instructions: Respond in clear, natural conversational prose (like ChatGPT). Remember full conversation history for follow-up questions. You can research ANY coin or protocol (including emerging tokens like Arcium ARX, Monad, Hyperliquid, Berachain, DeFi, or trading strategies) even if not in the Top 50 feed. Never invent fake live spot prices, never output raw JSON, and avoid promising guaranteed financial returns.`,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+  };
+
   const sendMessage = async (textOverride?: string, modeOverride?: AiCopilotMode) => {
     const text = (textOverride ?? input).trim();
     const targetMode = modeOverride ?? copilotMode;
@@ -311,9 +361,6 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
     }
 
     if (!isProMax && remainingBasic <= 0) {
-      setErrorMsg(
-        'Daily 5-query limit reached for Free/Pro. Upgrade to Pulser Pro Max ($25/mo) for Unlimited Advanced AI.'
-      );
       return;
     }
 
@@ -327,84 +374,14 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
     const nextMessages = [...messages, userMsg];
     setMessages(nextMessages);
     setInput('');
-    setErrorMsg(null);
     setIsSending(true);
 
     const conversationHistory = nextMessages
       .filter((m) => m.id !== 'welcome')
-      .slice(-36)
+      .slice(-24)
       .map((m) => ({ role: m.role, content: m.content }));
 
-    const isBrowserOffline =
-      typeof navigator !== 'undefined' && navigator.onLine === false;
-
-    const triggerOfflineEngine = () => {
-      const offlineReply = buildLiveMarketEngineReply({
-        prompt: text,
-        copilotMode: targetMode,
-        coins,
-        watchlistIds,
-        globalStats,
-        currency,
-        fxRates,
-        newsArticles,
-      });
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `a-${Date.now()}`,
-          role: 'assistant',
-          content: offlineReply,
-          timestamp: new Date().toISOString(),
-          engine: 'live-market-engine',
-          modelUsed: 'live-market-engine-offline',
-        },
-      ]);
-      setIsSending(false);
-    };
-
-    if (isBrowserOffline) {
-      triggerOfflineEngine();
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userPrompt: text,
-          messages: conversationHistory,
-          marketContext: buildLiveContext(text, targetMode),
-          copilotMode: targetMode,
-        }),
-      });
-
-      const data = (await res.json().catch(() => ({}))) as {
-        reply?: string;
-        error?: string;
-        errorCode?: string;
-        engine?: 'gemini' | 'live-market-engine';
-        modelUsed?: string;
-      };
-
-      if (!res.ok) {
-        setErrorMsg(
-          data?.error ||
-            'Unable to get a response from Gemini AI right now. Please check Settings > Secrets or try again.'
-        );
-        setIsSending(false);
-        return;
-      }
-
-      const replyText = data?.reply?.trim() || '';
-      if (!replyText) {
-        setErrorMsg('Gemini returned an empty response. Please try phrasing your question again.');
-        setIsSending(false);
-        return;
-      }
-
+    const incrementUsageIfNeeded = () => {
       if (!isProMax) {
         const nextUsed = dailyUsed + 1;
         setDailyUsed(nextUsed);
@@ -414,28 +391,147 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
           // Ignore storage quota errors
         }
       }
+    };
 
+    const triggerConversationalFallback = () => {
+      const priorHistory = conversationHistory.slice(0, -1);
+      const fallbackReply = buildLiveMarketEngineReply({
+        prompt: text,
+        copilotMode: targetMode,
+        coins,
+        watchlistIds,
+        globalStats,
+        currency,
+        fxRates,
+        newsArticles,
+        history: priorHistory,
+      });
+
+      incrementUsageIfNeeded();
       setMessages((prev) => [
         ...prev,
         {
           id: `a-${Date.now()}`,
           role: 'assistant',
-          content: replyText,
+          content: fallbackReply,
           timestamp: new Date().toISOString(),
-          engine: 'gemini',
-          modelUsed: data.modelUsed || 'gemini-2.5-flash',
+          engine: 'live-market-engine',
+          modelUsed: 'pulser-conversational-analyst',
         },
       ]);
       setIsSending(false);
-    } catch {
-      // Network is unreachable / completely offline: use local Live Market Engine
-      triggerOfflineEngine();
+    };
+
+    const isBrowserOffline =
+      typeof navigator !== 'undefined' && navigator.onLine === false;
+
+    if (isBrowserOffline) {
+      triggerConversationalFallback();
+      return;
     }
+
+    const liveContext = buildLiveContext(text, targetMode);
+    const systemPrompt = buildPollinationsSystemPrompt(targetMode, liveContext);
+
+    // 1. Primary Zero-Key Live AI via Pollinations Text API (CORS-enabled POST endpoint)
+    try {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+      try {
+        const res = await fetch('https://text.pollinations.ai/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...conversationHistory,
+            ],
+            model: 'openai',
+            seed: 42,
+          }),
+          signal: controller.signal,
+        });
+
+        if (res.ok) {
+          const replyText = (await res.text()).trim();
+          if (replyText && !/^<!doctype|^<html/i.test(replyText)) {
+            incrementUsageIfNeeded();
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `a-${Date.now()}`,
+                role: 'assistant',
+                content: replyText,
+                timestamp: new Date().toISOString(),
+                engine: 'gemini',
+                modelUsed: 'pollinations-openai',
+              },
+            ]);
+            setIsSending(false);
+            return;
+          }
+        }
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    } catch {
+      // Fall through silently to backend proxy & built-in engine
+    }
+
+    // 2. Secondary Server Route (/api/ai/chat)
+    try {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+      try {
+        const res = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userPrompt: text,
+            messages: conversationHistory,
+            marketContext: liveContext,
+            copilotMode: targetMode,
+          }),
+          signal: controller.signal,
+        });
+
+        if (res.ok) {
+          const data = (await res.json().catch(() => ({}))) as {
+            reply?: string;
+            engine?: 'gemini' | 'live-market-engine';
+            modelUsed?: string;
+          };
+          const replyText = data?.reply?.trim() || '';
+          if (replyText) {
+            incrementUsageIfNeeded();
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `a-${Date.now()}`,
+                role: 'assistant',
+                content: replyText,
+                timestamp: new Date().toISOString(),
+                engine: data.engine || 'gemini',
+                modelUsed: data.modelUsed || 'live-ai',
+              },
+            ]);
+            setIsSending(false);
+            return;
+          }
+        }
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    } catch {
+      // Fall through silently to built-in conversational analyst engine
+    }
+
+    // 3. Instant Zero-Error Built-In Conversational Crypto Analyst Engine
+    triggerConversationalFallback();
   };
 
   const handleResetChat = () => {
     setMessages([{ ...WELCOME_MESSAGE, timestamp: new Date().toISOString() }]);
-    setErrorMsg(null);
     setInput('');
   };
 
@@ -580,9 +676,9 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
                 >
                   {msg.role === 'assistant' && msg.engine === 'live-market-engine' && (
                     <div className="mb-1.5 flex items-center gap-1.5">
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
-                        <WifiOff className="w-2.5 h-2.5" />
-                        <span>Live Market Engine · Offline Mode</span>
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span>Live Market Engine</span>
                       </span>
                     </div>
                   )}
@@ -596,12 +692,6 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
                 <div className="rounded-xl px-3.5 py-2.5 text-xs bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400">
                   Analyzing live market data...
                 </div>
-              </div>
-            )}
-
-            {errorMsg && (
-              <div className="rounded-xl px-3.5 py-2.5 text-xs bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400">
-                {errorMsg}
               </div>
             )}
 
