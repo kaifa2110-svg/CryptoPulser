@@ -6,6 +6,7 @@ interface CoinLogoProps {
   coin?: Pick<Coin, 'symbol' | 'name' | 'image'> | null;
   symbol?: string;
   name?: string;
+  cmcId?: number;
   size?: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
 }
@@ -21,12 +22,13 @@ export const CoinLogo: React.FC<CoinLogoProps> = ({
   coin,
   symbol,
   name,
+  cmcId,
   size = 'md',
   className = '',
 }) => {
   const sym = (coin?.symbol || symbol || '?').toUpperCase();
   const label = coin?.name || name || sym;
-  const cmcUrl = getCmcLogoUrl(sym);
+  const cmcUrl = getCmcLogoUrl(sym, cmcId);
   const altUrl = coin?.image;
 
   const [stage, setStage] = useState<'cmc' | 'alt' | 'fallback'>(() =>

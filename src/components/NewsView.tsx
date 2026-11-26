@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ExternalLink, Newspaper, Search } from 'lucide-react';
 import { NewsArticle } from '../types/crypto';
+import { sanitizeHttpUrl, sanitizeSafeImageUrl } from '../utils/sanitize';
 
 interface NewsViewProps {
   articles: NewsArticle[];
@@ -84,19 +85,27 @@ export const NewsView: React.FC<NewsViewProps> = ({ articles, isLoading }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((article) => (
+          {filtered.map((article) => {
+            const safeImg = sanitizeSafeImageUrl(article.imageUrl, true);
+            return (
             <article
               key={article.id}
               onClick={() => setSelectedArticle(article)}
               className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101624] overflow-hidden flex flex-col hover:border-slate-300 dark:hover:border-slate-700 transition-colors cursor-pointer group"
             >
               <div className="aspect-[4/3] bg-slate-900 relative overflow-hidden">
-                <img
-                  src={article.imageUrl}
-                  alt={article.title}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-                />
+                {safeImg ? (
+                  <img
+                    src={safeImg}
+                    alt={article.title}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-400">
+                    <Newspaper className="w-8 h-8" />
+                  </div>
+                )}
               </div>
 
               <div className="p-4 flex-1 flex flex-col justify-between gap-3">
@@ -127,12 +136,16 @@ export const NewsView: React.FC<NewsViewProps> = ({ articles, isLoading }) => {
                 </div>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* Article Reader Modal */}
-      {selectedArticle && (
+      {selectedArticle && (() => {
+        const safeModalImg = sanitizeSafeImageUrl(selectedArticle.imageUrl, true);
+        const safeArticleUrl = sanitizeHttpUrl(selectedArticle.url);
+        return (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm"
           onClick={() => setSelectedArticle(null)}
@@ -142,12 +155,18 @@ export const NewsView: React.FC<NewsViewProps> = ({ articles, isLoading }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="aspect-[16/9] bg-slate-900 overflow-hidden">
-              <img
-                src={selectedArticle.imageUrl}
-                alt={selectedArticle.title}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
-              />
+              {safeModalImg ? (
+                <img
+                  src={safeModalImg}
+                  alt={selectedArticle.title}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-400">
+                  <Newspaper className="w-10 h-10" />
+                </div>
+              )}
             </div>
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
@@ -179,21 +198,24 @@ export const NewsView: React.FC<NewsViewProps> = ({ articles, isLoading }) => {
                   >
                     Close
                   </button>
-                  <a
-                    href={selectedArticle.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950"
-                  >
-                    <span>Source Article</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+                  {safeArticleUrl && (
+                    <a
+                      href={safeArticleUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950"
+                    >
+                      <span>Source Article</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

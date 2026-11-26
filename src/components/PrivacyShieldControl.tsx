@@ -60,7 +60,7 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
 
   const [open, setOpen] = useState(false);
   const [pinDraft, setPinDraft] = useState('');
-  const [keyDraft, setKeyDraft] = useState(cmcApiKey);
+  const [keyDraft, setKeyDraft] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [vaultPinBoxOpen, setVaultPinBoxOpen] = useState(false);
   const [vaultPinDraft, setVaultPinDraft] = useState('');
@@ -75,9 +75,12 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Never keep sealed API key plaintext in input DOM value while locked
   useEffect(() => {
-    setKeyDraft(cmcApiKey);
-  }, [cmcApiKey]);
+    if (!showKey) {
+      setKeyDraft('');
+    }
+  }, [cmcApiKey, showKey]);
 
   // Auto-hide revealed API key and close PIN box when dropdown closes
   useEffect(() => {
@@ -129,7 +132,17 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
 
   const handleSaveVault = async (e: React.FormEvent) => {
     e.preventDefault();
-    await saveCmcApiKey(keyDraft);
+    const trimmed = keyDraft.trim();
+    if (!trimmed) {
+      if (cmcApiKey) {
+        setVaultPinNotice('Existing key remains sealed. Click the Eye icon with your PIN to inspect or replace.');
+      }
+      return;
+    }
+    await saveCmcApiKey(trimmed);
+    if (!showKey) {
+      setKeyDraft('');
+    }
     setVaultSavedNotice(true);
     setTimeout(() => setVaultSavedNotice(false), 2500);
   };
@@ -137,6 +150,7 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
   const handleVaultEyeClick = () => {
     if (showKey) {
       setShowKey(false);
+      setKeyDraft('');
       setRevealSecondsLeft(0);
       return;
     }
@@ -171,6 +185,7 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
       setVaultPinError('');
       setVaultPinNotice('');
       setVaultPinBoxOpen(false);
+      setKeyDraft(cmcApiKey);
       setShowKey(true);
       setRevealSecondsLeft(15);
     } else {
@@ -206,14 +221,14 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
   };
 
   return (
-    <div ref={containerRef} className="relative flex items-center gap-1.5 shrink-0">
+    <div ref={containerRef} className="relative flex items-center gap-2 flex-nowrap shrink-0">
       {/* Quick Stealth Mode Eye Toggle (Alt+H) */}
       <button
         type="button"
         onClick={toggleStealth}
         aria-label={stealthMode ? 'Disable Stealth Mode (Alt+H)' : 'Enable Stealth Mode (Alt+H)'}
         title={stealthMode ? 'Stealth Mode ON (Alt + H)' : 'Instant Stealth Mode (Alt + H)'}
-        className={`p-2 rounded-lg border transition-colors cursor-pointer shrink-0 ${
+        className={`p-2 rounded-lg border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
           stealthMode
             ? 'border-amber-400/70 bg-amber-500/15 text-amber-500 dark:text-amber-300'
             : 'border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-[#11182A] text-slate-600 dark:text-slate-300 hover:border-cyan-400/50 hover:text-cyan-500'
@@ -245,15 +260,15 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
         </span>
       </button>
 
-      {/* One-Click Red Panic Wipe Shortcut in Header */}
+      {/* One-Click Red Panic Wipe Shortcut in Header (wide screens; always available in dropdown) */}
       <button
         type="button"
         onClick={triggerPanicWipe}
         title="Panic Wipe: Immediately clear all local session data"
         aria-label="Panic Wipe emergency reset"
-        className="hidden lg:inline-flex items-center gap-1 px-2.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+        className="hidden 2xl:inline-flex items-center gap-1 px-2.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
       >
-        <Flame className="w-3.5 h-3.5" />
+        <Flame className="w-3.5 h-3.5 shrink-0" />
         <span>Panic Wipe</span>
       </button>
 
@@ -518,7 +533,11 @@ export const PrivacyShieldControl: React.FC<PrivacyShieldControlProps> = ({
                     type={showKey ? 'text' : 'password'}
                     value={keyDraft}
                     onChange={(e) => setKeyDraft(e.target.value)}
-                    placeholder="••••••••-••••-••••-••••-••••••••••••"
+                    placeholder={
+                      cmcApiKey && !showKey
+                        ? '••••••••-••••-•••• (Sealed · Enter PIN via Eye)'
+                        : '••••••••-••••-••••-••••-••••••••••••'
+                    }
                     autoComplete="off"
                     className="w-full pl-3 pr-8 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />

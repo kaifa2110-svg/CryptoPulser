@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Clock, Crown, LogIn, ShieldAlert, Sparkles } from 'lucide-react';
+import { Bell, Clock, Crown, LogIn, ShieldAlert, Sparkles, Wallet } from 'lucide-react';
 import { useUserAccount } from '../context/UserAccountContext';
 import { CurrencyCode, FxRates, NavTab, PlanTier } from '../types/crypto';
 import { formatProMonthlyPrice } from '../utils/formatters';
@@ -20,6 +20,8 @@ interface TopBarProps {
   activeAlertCount: number;
   onOpenAlertCenter: () => void;
   onOpenAntiFomoGuard: () => void;
+  onOpenMyWallet: () => void;
+  savedWalletCount: number;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -35,6 +37,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   activeAlertCount,
   onOpenAlertCenter,
   onOpenAntiFomoGuard,
+  onOpenMyWallet,
+  savedWalletCount,
 }) => {
   const { currentUser, setAuthModalOpen, setProfileDrawerOpen } = useUserAccount();
   const proPriceLabel = formatProMonthlyPrice(currency, fxRates);
@@ -42,20 +46,20 @@ export const TopBar: React.FC<TopBarProps> = ({
   const isPro = activePlan === 'pro' || isProMax;
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800/90 bg-white/95 dark:bg-[#090D16]/95 backdrop-blur-md">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4 xl:gap-6">
+    <header className="sticky top-0 z-30 w-full border-b border-slate-200 dark:border-slate-800/90 bg-white/95 dark:bg-[#090D16]/95 backdrop-blur-md">
+      <div className="w-full max-w-[1440px] mx-auto px-4 h-14 flex items-center justify-between gap-3 flex-nowrap">
         {/* Zone 1: Pulsar Star Logo + CryptoPulser.com wordmark */}
         <button
           type="button"
           onClick={() => onSelectTab('top1000')}
-          className="inline-flex items-center gap-2.5 font-display text-base xl:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-50 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded-lg"
+          className="inline-flex items-center gap-2 font-display text-sm sm:text-base xl:text-[17px] font-bold tracking-tight text-slate-900 dark:text-slate-50 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded-lg"
         >
-          <PulsarLogo size={30} />
+          <PulsarLogo size={28} />
           <span>CryptoPulser.com</span>
         </button>
 
         {/* Zone 2: 5 concise single-line navigation links */}
-        <nav className="hidden md:flex items-center gap-4 lg:gap-5 text-xs lg:text-sm font-medium text-slate-600 dark:text-slate-400">
+        <nav className="hidden xl:flex items-center gap-3.5 2xl:gap-5 text-[13px] font-medium text-slate-600 dark:text-slate-400 flex-nowrap shrink-0">
           <button
             type="button"
             onClick={() => onSelectTab('top1000')}
@@ -109,8 +113,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
         </nav>
 
-        {/* Zone 3: Anti-FOMO Guard + Local & Private Suite + Alert Bell + Primary CTA */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Zone 3: Anti-FOMO Guard + Local & Private Suite + My Wallet + Alert Bell + Primary CTA */}
+        <div className="flex items-center gap-2 2xl:gap-2.5 flex-nowrap shrink-0">
           <button
             type="button"
             onClick={onOpenAntiFomoGuard}
@@ -118,11 +122,26 @@ export const TopBar: React.FC<TopBarProps> = ({
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-amber-500/45 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors"
           >
             <ShieldAlert className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            <span className="hidden xl:inline">Anti-FOMO Guard</span>
-            <span className="hidden sm:inline xl:hidden">Anti-FOMO</span>
+            <span className="hidden 2xl:inline">Anti-FOMO Guard</span>
+            <span className="hidden md:inline 2xl:hidden">Anti-FOMO</span>
           </button>
 
           <PrivacyShieldControl isPro={isPro} onOpenProModal={onOpenProModal} />
+
+          <button
+            type="button"
+            onClick={onOpenMyWallet}
+            title="My Verified Wallets & Receive QR"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors"
+          >
+            <Wallet className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
+            <span className="hidden sm:inline">My Wallet</span>
+            {savedWalletCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-cyan-500 text-slate-950 font-mono text-[10px] font-bold tabular-nums">
+                {savedWalletCount}
+              </span>
+            )}
+          </button>
 
           <button
             type="button"
@@ -145,7 +164,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             type="button"
             onClick={onOpenProModal}
-            className={`inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+            className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
               isProMax
                 ? 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
                 : isTrialActive
@@ -157,26 +176,30 @@ export const TopBar: React.FC<TopBarProps> = ({
           >
             {isProMax ? (
               <>
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Pulser Pro Max Active</span>
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden 2xl:inline">Pulser Pro Max Active</span>
+                <span className="2xl:hidden">Pro Max</span>
               </>
             ) : isTrialActive ? (
               <>
-                <Clock className="w-3.5 h-3.5" />
+                <Clock className="w-3.5 h-3.5 shrink-0" />
                 <span className="tabular-nums">
-                  Pro Trial · {trialDaysLeft}d Left
+                  <span className="hidden 2xl:inline">Pro Trial · </span>
+                  {trialDaysLeft}d Left
                 </span>
               </>
             ) : isPro ? (
               <>
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Pulser Pro Active</span>
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden 2xl:inline">Pulser Pro Active</span>
+                <span className="2xl:hidden">Pro</span>
               </>
             ) : (
               <>
-                <Crown className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">7-Day Free Trial · {proPriceLabel}</span>
-                <span className="sm:hidden">Pro {proPriceLabel}</span>
+                <Crown className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden 2xl:inline">7-Day Free Trial · {proPriceLabel}</span>
+                <span className="hidden md:inline 2xl:hidden">Pro Trial</span>
+                <span className="md:hidden">Pro</span>
               </>
             )}
           </button>
@@ -187,7 +210,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               onClick={() => setProfileDrawerOpen(true)}
               aria-label="Open User Profile"
               title={`${currentUser.displayName} (${currentUser.username})`}
-              className="inline-flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700/90 bg-slate-100/80 dark:bg-[#11182A] hover:border-cyan-400/60 transition-colors cursor-pointer shrink-0"
+              className="inline-flex items-center gap-2 pl-1.5 pr-1.5 2xl:pr-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700/90 bg-slate-100/80 dark:bg-[#11182A] hover:border-cyan-400/60 transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               <UserAvatar
                 displayName={currentUser.displayName}
@@ -195,7 +218,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 avatarPresetId={currentUser.avatarPresetId}
                 size="sm"
               />
-              <span className="hidden lg:inline text-xs font-semibold text-slate-800 dark:text-slate-100 max-w-[100px] truncate">
+              <span className="hidden 2xl:inline text-xs font-semibold text-slate-800 dark:text-slate-100 max-w-[100px] truncate">
                 {currentUser.displayName}
               </span>
             </button>
@@ -203,11 +226,11 @@ export const TopBar: React.FC<TopBarProps> = ({
             <button
               type="button"
               onClick={() => setAuthModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors"
             >
-              <LogIn className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Log In / Sign Up</span>
-              <span className="sm:hidden">Log In</span>
+              <LogIn className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden 2xl:inline">Log In / Sign Up</span>
+              <span className="hidden sm:inline 2xl:hidden">Log In</span>
             </button>
           )}
         </div>

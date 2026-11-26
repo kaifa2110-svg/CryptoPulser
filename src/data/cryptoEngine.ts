@@ -194,33 +194,30 @@ const BASELINE_TOP_COINS: Array<Partial<Coin> & { id: string; symbol: string; na
   { id: 'injective-protocol', symbol: 'INJ', name: 'Injective', priceUsd: 29.4, marketCapUsd: 2890000000, category: 'DeFi', change1h: 0.77, change24h: 5.3, change7d: 16.4, change30d: 52.0, change1y: 78.2, circulatingSupply: 98300000, maxSupply: 100000000 },
   { id: 'ondo-finance', symbol: 'ONDO', name: 'Ondo', priceUsd: 1.18, marketCapUsd: 1690000000, category: 'RWA', change1h: 0.48, change24h: 4.15, change7d: 15.2, change30d: 68.4, change1y: 390.5, circulatingSupply: 1430000000, maxSupply: 10000000000 },
   { id: 'celestia', symbol: 'TIA', name: 'Celestia', priceUsd: 7.92, marketCapUsd: 3320000000, category: 'Modular', change1h: -0.41, change24h: -2.14, change7d: 9.8, change30d: 34.1, change1y: 28.4, circulatingSupply: 419000000, maxSupply: null },
-];
-
-const EXTRA_PREFIXES = [
-  'Aether', 'Vanguard', 'Nexus', 'Hyper', 'Helios', 'Kinetix', 'Stratos', 'Solstice',
-  'Polaris', 'Chronos', 'Vertex', 'Omni', 'Aegis', 'Quantum', 'Zenith', 'Lumen',
-  'Prism', 'Boreal', 'Nova', 'Cobalt', 'Meridian', 'Axiom', 'Veloce', 'Flux',
-  'Sovereign', 'Atlas', 'Tectonic', 'Cortex', 'Orbital', 'Pulse', 'Mirage', 'Vector',
-  'Cipher', 'Monolith', 'Arcadia', 'Relay', 'Beacon', 'Kestrel', 'Sentinel', 'Paragon',
-];
-
-const EXTRA_SUFFIXES = [
-  'Protocol', 'Network', 'Chain', 'Finance', 'Labs', 'DAO', 'Core', 'Swap',
-  'Bridge', 'Layer', 'Vault', 'Mesh', 'Grid', 'Rollup', 'Compute', 'Ledger',
-  'Index', 'Cloud', 'Cash', 'Pay', 'Market', 'Node', 'Zero', 'Hub', 'X',
-];
-
-const CATEGORIES = [
-  'DeFi',
-  'Layer 1',
-  'Layer 2',
-  'AI & Compute',
-  'RWA',
-  'Infrastructure',
-  'Gaming',
-  'Oracle',
-  'Modular',
-  'Storage',
+  { id: 'shiba-inu', symbol: 'SHIB', name: 'Shiba Inu', priceUsd: 0.0000248, marketCapUsd: 14600000000, category: 'Meme', change1h: 0.22, change24h: 3.45, change7d: 9.1, change30d: 31.2, change1y: 195.0, circulatingSupply: 589260000000000, maxSupply: null },
+  { id: 'litecoin', symbol: 'LTC', name: 'Litecoin', priceUsd: 96.4, marketCapUsd: 7240000000, category: 'Payments', change1h: 0.18, change24h: 2.15, change7d: 7.3, change30d: 26.4, change1y: 38.2, circulatingSupply: 75100000, maxSupply: 84000000 },
+  { id: 'bitcoin-cash', symbol: 'BCH', name: 'Bitcoin Cash', priceUsd: 492.0, marketCapUsd: 9730000000, category: 'Payments', change1h: 0.25, change24h: 2.84, change7d: 8.6, change30d: 34.0, change1y: 112.0, circulatingSupply: 19780000, maxSupply: 21000000 },
+  { id: 'pepe', symbol: 'PEPE', name: 'Pepe', priceUsd: 0.0000192, marketCapUsd: 8080000000, category: 'Meme', change1h: 0.85, change24h: 6.72, change7d: 18.4, change30d: 95.1, change1y: 1280.0, circulatingSupply: 420690000000000, maxSupply: 420690000000000 },
+  { id: 'hedera-hashgraph', symbol: 'HBAR', name: 'Hedera', priceUsd: 0.148, marketCapUsd: 5580000000, category: 'Enterprise', change1h: 0.54, change24h: 5.18, change7d: 24.5, change30d: 185.0, change1y: 140.0, circulatingSupply: 37700000000, maxSupply: 50000000000 },
+  { id: 'aptos', symbol: 'APT', name: 'Aptos', priceUsd: 11.9, marketCapUsd: 6320000000, category: 'Layer 1', change1h: 0.41, change24h: 4.12, change7d: 13.8, change30d: 28.9, change1y: 62.5, circulatingSupply: 531000000, maxSupply: null },
+  { id: 'internet-computer', symbol: 'ICP', name: 'Internet Computer', priceUsd: 11.4, marketCapUsd: 5410000000, category: 'AI & Compute', change1h: 0.33, change24h: 3.85, change7d: 15.6, change30d: 41.2, change1y: 148.0, circulatingSupply: 474500000, maxSupply: null },
+  { id: 'stellar', symbol: 'XLM', name: 'Stellar', priceUsd: 0.448, marketCapUsd: 13450000000, category: 'Payments', change1h: 0.92, change24h: 6.45, change7d: 28.4, change30d: 310.0, change1y: 265.0, circulatingSupply: 30020000000, maxSupply: 50001806812 },
+  { id: 'cosmos', symbol: 'ATOM', name: 'Cosmos', priceUsd: 7.85, marketCapUsd: 3060000000, category: 'Layer 0', change1h: 0.29, change24h: 3.14, change7d: 11.2, change30d: 58.4, change1y: -14.2, circulatingSupply: 390900000, maxSupply: null },
+  { id: 'filecoin', symbol: 'FIL', name: 'Filecoin', priceUsd: 5.68, marketCapUsd: 3440000000, category: 'Storage', change1h: 0.37, change24h: 4.02, change7d: 14.8, change30d: 52.1, change1y: 18.4, circulatingSupply: 605600000, maxSupply: null },
+  { id: 'vechain', symbol: 'VET', name: 'VeChain', priceUsd: 0.042, marketCapUsd: 3400000000, category: 'Enterprise', change1h: 0.44, change24h: 4.55, change7d: 19.2, change30d: 94.0, change1y: 92.1, circulatingSupply: 80985000000, maxSupply: 86712634466 },
+  { id: 'kaspa', symbol: 'KAS', name: 'Kaspa', priceUsd: 0.158, marketCapUsd: 3990000000, category: 'Layer 1', change1h: 0.15, change24h: 2.38, change7d: 6.9, change30d: 24.5, change1y: 22.8, circulatingSupply: 25250000000, maxSupply: 28704026601 },
+  { id: 'fetch-ai', symbol: 'FET', name: 'Artificial Superintelligence Alliance', priceUsd: 1.48, marketCapUsd: 3610000000, category: 'AI & Compute', change1h: 0.72, change24h: 5.84, change7d: 13.7, change30d: 18.9, change1y: 195.0, circulatingSupply: 2440000000, maxSupply: 2719493897 },
+  { id: 'blockstack', symbol: 'STX', name: 'Stacks', priceUsd: 2.18, marketCapUsd: 3270000000, category: 'Layer 2', change1h: 0.46, change24h: 4.62, change7d: 15.1, change30d: 32.4, change1y: 204.0, circulatingSupply: 1500000000, maxSupply: 1818000000 },
+  { id: 'maker', symbol: 'MKR', name: 'Maker', priceUsd: 1840.0, marketCapUsd: 1620000000, category: 'DeFi', change1h: 0.32, change24h: 3.18, change7d: 11.4, change30d: 44.2, change1y: 22.1, circulatingSupply: 880000, maxSupply: 1005577 },
+  { id: 'immutable-x', symbol: 'IMX', name: 'Immutable', priceUsd: 1.72, marketCapUsd: 2890000000, category: 'Gaming', change1h: 0.51, change24h: 4.92, change7d: 16.8, change30d: 38.5, change1y: 24.6, circulatingSupply: 1680000000, maxSupply: 2000000000 },
+  { id: 'sei-network', symbol: 'SEI', name: 'Sei', priceUsd: 0.585, marketCapUsd: 2330000000, category: 'Layer 1', change1h: 0.88, change24h: 6.45, change7d: 19.3, change30d: 48.2, change1y: 145.0, circulatingSupply: 3980000000, maxSupply: 10000000000 },
+  { id: 'jupiter-exchange-solana', symbol: 'JUP', name: 'Jupiter', priceUsd: 1.14, marketCapUsd: 1540000000, category: 'DeFi', change1h: 0.76, change24h: 5.95, change7d: 14.1, change30d: 36.7, change1y: 85.4, circulatingSupply: 1350000000, maxSupply: 10000000000 },
+  { id: 'mantra-dao', symbol: 'OM', name: 'MANTRA', priceUsd: 3.84, marketCapUsd: 3580000000, category: 'RWA', change1h: 0.61, change24h: 4.82, change7d: 17.6, change30d: 148.0, change1y: 9800.0, circulatingSupply: 932000000, maxSupply: null },
+  { id: 'pendle', symbol: 'PENDLE', name: 'Pendle', priceUsd: 5.42, marketCapUsd: 884000000, category: 'RWA', change1h: 0.69, change24h: 6.14, change7d: 18.2, change30d: 42.5, change1y: 365.0, circulatingSupply: 163000000, maxSupply: 258446028 },
+  { id: 'ethena', symbol: 'ENA', name: 'Ethena', priceUsd: 0.68, marketCapUsd: 1930000000, category: 'DeFi', change1h: 0.84, change24h: 7.45, change7d: 26.8, change30d: 94.2, change1y: 42.0, circulatingSupply: 2840000000, maxSupply: 15000000000 },
+  { id: 'dogwifcoin', symbol: 'WIF', name: 'dogwifhat', priceUsd: 3.24, marketCapUsd: 3230000000, category: 'Meme', change1h: -0.45, change24h: 4.15, change7d: 12.4, change30d: 39.2, change1y: 1850.0, circulatingSupply: 998900000, maxSupply: 998900000 },
+  { id: 'bonk', symbol: 'BONK', name: 'Bonk', priceUsd: 0.0000442, marketCapUsd: 3320000000, category: 'Meme', change1h: 0.64, change24h: 5.92, change7d: 21.8, change30d: 112.0, change1y: 940.0, circulatingSupply: 75120000000000, maxSupply: 92700000000000 },
+  { id: 'pax-gold', symbol: 'PAXG', name: 'PAX Gold', priceUsd: 2685.0, marketCapUsd: 532000000, category: 'RWA', change1h: 0.05, change24h: 0.84, change7d: 2.1, change30d: 4.5, change1y: 34.2, circulatingSupply: 198100, maxSupply: null },
 ];
 
 function seededRandom(seed: number): number {
@@ -378,75 +375,6 @@ export function buildTop1000Coins(liveCoins: Coin[]): {
             idx
           );
         });
-
-  const usedSymbols = new Set(baseList.map((c) => c.symbol.toUpperCase()));
-  const lastLive = baseList[baseList.length - 1];
-  let anchorMcap = Math.max(180000000, lastLive?.marketCapUsd || 220000000);
-
-  for (let rank = baseList.length + 1; rank <= 1000; rank++) {
-    const pIdx = (rank * 7) % EXTRA_PREFIXES.length;
-    const sIdx = (rank * 13 + Math.floor(rank / 40)) % EXTRA_SUFFIXES.length;
-    const prefix = EXTRA_PREFIXES[pIdx];
-    const suffix = EXTRA_SUFFIXES[sIdx];
-    const name = `${prefix} ${suffix}`;
-
-    let sym = (prefix.slice(0, 2) + suffix.slice(0, 2)).toUpperCase();
-    if (usedSymbols.has(sym)) {
-      sym = `${prefix.slice(0, 2)}${suffix.slice(0, 1)}${rank % 9}`.toUpperCase();
-    }
-    if (usedSymbols.has(sym)) {
-      sym = `CP${rank}`;
-    }
-    usedSymbols.add(sym);
-
-    anchorMcap = Math.max(420000, anchorMcap * (0.988 + seededRandom(rank) * 0.008));
-    const supply = Math.round(10_000_000 + seededRandom(rank * 3) * 950_000_000);
-    const priceUsd = anchorMcap / supply;
-    const change24h = (seededRandom(rank * 11) - 0.45) * 19;
-    const change7d = (seededRandom(rank * 17) - 0.42) * 34;
-    const change1h = (seededRandom(rank * 5) - 0.48) * 3.8;
-    const change30d = change7d * 1.9 + (seededRandom(rank * 23) - 0.4) * 28;
-    const change1y = change30d * 2.2 + (seededRandom(rank * 29) - 0.35) * 90;
-
-    baseList.push(
-      hydrateCoinTelemetry(
-        {
-          id: `${prefix.toLowerCase()}-${suffix.toLowerCase()}-${rank}`,
-          rank,
-          symbol: sym,
-          name,
-          category: CATEGORIES[rank % CATEGORIES.length],
-          priceUsd,
-          marketCapUsd: anchorMcap,
-          fdvUsd: anchorMcap * (1.1 + seededRandom(rank * 19) * 0.8),
-          volume24hUsd: anchorMcap * (0.02 + seededRandom(rank * 13) * 0.14),
-          vol24hChangePct: 0,
-          high24hUsd: priceUsd * (1 + Math.abs(change24h) / 110 + 0.02),
-          low24hUsd: priceUsd * (1 - Math.abs(change24h) / 110 - 0.02),
-          circulatingSupply: supply,
-          maxSupply: rank % 3 === 0 ? null : Math.round(supply * (1.2 + seededRandom(rank) * 0.8)),
-          change1h,
-          change24h,
-          change7d,
-          change30d,
-          change1y,
-          dominancePct: 0,
-          sparkline7d: makeSparkline(priceUsd, change7d, rank),
-          networks: [],
-          contracts: [],
-          openInterestUsd: 0,
-          oiChange24hPct: 0,
-          derivativesVol24hUsd: 0,
-          fundingRatePct: 0,
-          longLiq24hUsd: 0,
-          shortLiq24hUsd: 0,
-          totalLiq24hUsd: 0,
-          isLiveApi: false,
-        },
-        rank
-      )
-    );
-  }
 
   const totalCap = baseList.reduce((acc, c) => acc + c.marketCapUsd, 0);
   const totalVol = baseList.reduce((acc, c) => acc + c.volume24hUsd, 0);

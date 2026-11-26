@@ -91,6 +91,7 @@ export function formatPlanCurrencyAmount(
 ): string {
   const converted = convertUsd(usdAmount, currency, fxRates);
   const meta = CURRENCY_META[currency];
+  if (!Number.isFinite(converted)) return `${meta.symbol}0.00`;
   if (currency === 'PKR' || currency === 'INR') {
     return `${meta.symbol}${Math.round(converted).toLocaleString('en-US')}`;
   }

@@ -173,9 +173,47 @@ export const CMC_COIN_IDS: Record<string, number> = {
   CBETH: 21535,
   RETH: 15060,
   JITOSOL: 22533,
+  // RWA & Institutional Tokenization Assets
+  CFG: 6748,
+  POLYX: 20362,
+  TRU: 7725,
+  MPL: 9417,
+  SYRUP: 33824,
+  RIO: 4166,
+  CPOOL: 18691,
+  GFI: 13967,
+  PRO: 1974,
+  BOSON: 8827,
+  NXRA: 23953,
+  CTC: 4747,
+  TOKEN: 28299,
+  PRCL: 30495,
+  TRADE: 11330,
+  SMT: 18332,
+  USUAL: 34375,
+  // Recent TGE / Launchpool / IPO Assets
+  MOVE: 32452,
+  ME: 34124,
+  BERA: 24647,
+  KAITO: 35660,
+  IP: 35626,
+  BMT: 35852,
+  RED: 35789,
+  LAYER: 35518,
+  PARTI: 35920,
+  NIL: 35907,
+  SHELL: 35664,
+  VANA: 34389,
+  BIO: 34812,
+  SOLV: 35008,
+  ANIME: 35291,
+  GPS: 35107,
 };
 
-export function getCmcLogoUrl(symbol: string): string | null {
+export function getCmcLogoUrl(symbol: string, explicitCmcId?: number): string | null {
+  if (explicitCmcId && Number.isFinite(explicitCmcId) && explicitCmcId > 0) {
+    return `https://s2.coinmarketcap.com/static/img/coins/64x64/${explicitCmcId}.png`;
+  }
   const clean = symbol.trim().toUpperCase();
   const id = CMC_COIN_IDS[clean];
   if (!id) return null;

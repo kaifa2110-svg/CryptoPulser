@@ -15,6 +15,7 @@ import {
   SecurityActivityType,
   ThemePreference,
   UserAccountProfile,
+  VerifiedWallet,
 } from '../types/crypto';
 import { generateBase32Secret } from '../utils/totp';
 
@@ -92,6 +93,9 @@ interface UserAccountContextValue {
     network: 'EVM (0x)' | 'Solana' | 'Bitcoin' | null,
     verified: boolean
   ) => void;
+  verifiedWallets: VerifiedWallet[];
+  connectVerifiedWallet: (wallet: VerifiedWallet) => void;
+  disconnectVerifiedWallet: (walletId: string) => void;
   setBiometricEnabled: (enabled: boolean) => void;
   enableTwoFactor: (secret: string) => void;
   disableTwoFactor: () => void;
@@ -109,6 +113,7 @@ interface UserAccountContextValue {
 
 const ACCOUNTS_KEY = 'cp_accounts_v1';
 const ACTIVE_USER_KEY = 'cp_active_user_id_v1';
+const VERIFIED_WALLETS_KEY = 'cp_verified_wallets_v1';
 const THEME_PREF_KEY = 'cp_theme_pref_v1';
 const LANGUAGE_KEY = 'cp_language_v1';
 const BTC_UNIT_KEY = 'cp_btc_display_mode_v1';
@@ -303,9 +308,9 @@ function createDemoAccount(): UserAccountProfile {
     lastCheckInDate: null,
     claimedAirdropIds: ['monad-testnet', 'hyperliquid-s2'],
     createdAt: new Date(Date.now() - 14 * 86400000).toISOString(),
-    walletAddress: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
-    walletNetwork: 'EVM (0x)',
-    walletVerified: true,
+    walletAddress: '',
+    walletNetwork: null,
+    walletVerified: false,
     biometricEnabled: false,
     twoFactorEnabled: false,
   });
@@ -356,6 +361,9 @@ export const UserAccountProvider: React.FC<{
   );
   const [showAiFloatie, setShowAiFloatie] = useState<boolean>(() =>
     readJson<boolean>(SHOW_AI_FLOATIE_KEY, true)
+  );
+  const [verifiedWallets, setVerifiedWallets] = useState<VerifiedWallet[]>(() =>
+    readJson<VerifiedWallet[]>(VERIFIED_WALLETS_KEY, [])
   );
 
   useEffect(() => {
@@ -429,6 +437,14 @@ export const UserAccountProvider: React.FC<{
       // Ignore
     }
   }, [showAiFloatie]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(VERIFIED_WALLETS_KEY, JSON.stringify(verifiedWallets));
+    } catch {
+      // Ignore
+    }
+  }, [verifiedWallets]);
 
   const activeRecord = useMemo(() => {
     if (!activeUserId) return null;
@@ -666,6 +682,98 @@ export const UserAccountProvider: React.FC<{
       );
     },
     [activeUserId, onNotify]
+  );
+
+  const connectVerifiedWallet = useCallback(
+    (wallet: VerifiedWallet) => {
+      setVerifiedWallets((prev) => {
+        const exists = prev.some((w) =>
+          wallet.network === 'Ethereum (0x)'
+            ? w.address.toLowerCase() === wallet.address.toLowerCase()
+            : w.address === wallet.address
+        );
+        if (exists) {
+          return prev.map((w) =>
+            (wallet.network === 'Ethereum (0x)'
+              ? w.address.toLowerCase() === wallet.address.toLowerCase()
+              : w.address === wallet.address)
+              ? wallet
+              : w
+          );
+        }
+        return [wallet, ...prev].slice(0, 5);
+      });
+
+      if (activeUserId) {
+        const shortAddr = `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`;
+        const entry = makeActivity(
+          'Wallet Verified',
+          `${wallet.providerName} (${shortAddr}) verified via zero-gas signature`
+        );
+        setAccounts((prev) =>
+          prev.map((rec) =>
+            rec.profile.id === activeUserId
+              ? {
+                  ...rec,
+                  profile: {
+                    ...rec.profile,
+                    walletAddress: wallet.address,
+                    walletNetwork: wallet.network === 'Solana' ? 'Solana' : 'EVM (0x)',
+                    walletVerified: true,
+                    activities: [entry, ...(rec.profile.activities ?? [])].slice(0, 40),
+                  },
+                }
+              : rec
+          )
+        );
+      }
+
+      onNotify?.(
+        'Wallet Ownership Verified',
+        `${wallet.providerName} (${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}) linked via cryptographic signature.`
+      );
+    },
+    [activeUserId, onNotify]
+  );
+
+  const disconnectVerifiedWallet = useCallback(
+    (walletId: string) => {
+      const removed = verifiedWallets.find((w) => w.id === walletId);
+      const remaining = verifiedWallets.filter((w) => w.id !== walletId);
+      setVerifiedWallets(remaining);
+
+      if (activeUserId) {
+        const nextPrimary = remaining[0];
+        const entry = makeActivity(
+          'Wallet Verified',
+          removed
+            ? `Disconnected ${removed.providerName} (${removed.address.slice(0, 6)}...${removed.address.slice(-4)})`
+            : 'Disconnected verified wallet'
+        );
+        setAccounts((accPrev) =>
+          accPrev.map((rec) =>
+            rec.profile.id === activeUserId
+              ? {
+                  ...rec,
+                  profile: {
+                    ...rec.profile,
+                    walletAddress: nextPrimary ? nextPrimary.address : '',
+                    walletNetwork: nextPrimary
+                      ? nextPrimary.network === 'Solana'
+                        ? 'Solana'
+                        : 'EVM (0x)'
+                      : null,
+                    walletVerified: Boolean(nextPrimary),
+                    activities: [entry, ...(rec.profile.activities ?? [])].slice(0, 40),
+                  },
+                }
+              : rec
+          )
+        );
+      }
+      onNotify?.('Wallet Disconnected', 'Wallet disconnected cleanly from your profile.');
+    },
+    [activeUserId, onNotify, verifiedWallets]
   );
 
   const setBiometricEnabled = useCallback(
@@ -939,6 +1047,9 @@ export const UserAccountProvider: React.FC<{
     updateProfile,
     updateConsent,
     saveWalletAddress,
+    verifiedWallets,
+    connectVerifiedWallet,
+    disconnectVerifiedWallet,
     setBiometricEnabled,
     enableTwoFactor,
     disableTwoFactor,

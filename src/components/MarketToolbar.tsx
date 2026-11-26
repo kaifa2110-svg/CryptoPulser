@@ -1,18 +1,21 @@
 import React from 'react';
 import {
   Activity,
+  ArrowUpDown,
   Bookmark,
+  CircleDot,
   Flame,
   Gauge,
+  Landmark,
   MessageSquareText,
   Moon,
   Newspaper,
   Radar,
   RefreshCw,
+  Rocket,
   Share2,
   Sun,
   TrendingUp,
-  Waves,
 } from 'lucide-react';
 import { Coin, CurrencyCode, FxRates, GlobalMarketStats, NavTab } from '../types/crypto';
 import { formatCompactCurrency, formatPercent } from '../utils/formatters';
@@ -39,12 +42,15 @@ interface MarketToolbarProps {
 const TABS: Array<{ id: NavTab; label: string; pro?: boolean; icon: React.ReactNode }> = [
   { id: 'top1000', label: 'Top 1000', icon: <TrendingUp className="w-3.5 h-3.5" /> },
   { id: 'trending', label: 'Trending', icon: <Flame className="w-3.5 h-3.5" /> },
+  { id: 'crypto-bubbles', label: 'Crypto Bubbles', icon: <CircleDot className="w-3.5 h-3.5" /> },
+  { id: 'gainers-losers', label: 'Gainers & Losers', icon: <ArrowUpDown className="w-3.5 h-3.5" /> },
   { id: 'watchlist', label: 'Watchlist', icon: <Bookmark className="w-3.5 h-3.5" /> },
   { id: 'altcoins', label: 'Altcoins Index', icon: <Gauge className="w-3.5 h-3.5" /> },
+  { id: 'rwa', label: 'RWA Hub', icon: <Landmark className="w-3.5 h-3.5" /> },
+  { id: 'ipo-launchpad', label: 'IPO / Launchpad', icon: <Rocket className="w-3.5 h-3.5" /> },
   { id: 'news', label: 'Latest Crypto News', icon: <Newspaper className="w-3.5 h-3.5" /> },
   { id: 'pulser-square', label: 'Pulser Square', icon: <MessageSquareText className="w-3.5 h-3.5" /> },
   { id: 'bubble-radar', label: 'Bubble Radar', pro: true, icon: <Radar className="w-3.5 h-3.5" /> },
-  { id: 'whale-sonar', label: 'Whale Sonar', pro: true, icon: <Waves className="w-3.5 h-3.5" /> },
 ];
 
 export const MarketToolbar: React.FC<MarketToolbarProps> = ({
@@ -67,8 +73,8 @@ export const MarketToolbar: React.FC<MarketToolbarProps> = ({
   const mcapPositive = globalStats.marketCapChange24h >= 0;
 
   return (
-    <section className="border-b border-slate-200 dark:border-slate-800/80 bg-slate-50/80 dark:bg-[#0C111D]">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6">
+    <section className="w-full border-b border-slate-200 dark:border-slate-800/80 bg-slate-50/80 dark:bg-[#0C111D] overflow-x-clip">
+      <div className="w-full max-w-[1440px] mx-auto px-4">
         {/* Global Market Metrics & Controls */}
         <div className="py-2.5 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800/70 text-xs">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-slate-600 dark:text-slate-400">
@@ -133,7 +139,7 @@ export const MarketToolbar: React.FC<MarketToolbarProps> = ({
           </div>
 
           {/* Right workspace controls: Currency & Theme */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 max-w-full">
             <div
               className="inline-flex items-center rounded-md border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 p-0.5"
               role="group"

@@ -3,6 +3,7 @@ import { ArrowUpRight, FileCode2, Search, X } from 'lucide-react';
 import { usePrivacy } from '../context/PrivacyContext';
 import { Coin, CurrencyCode, FxRates } from '../types/crypto';
 import { formatCompactCurrency, formatPercent, formatPrice } from '../utils/formatters';
+import { CoinLogo } from './CoinLogo';
 
 interface GlobalSearchBarProps {
   coins: Coin[];
@@ -132,7 +133,7 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
   };
 
   return (
-    <div ref={containerRef} className="relative flex-1 min-w-[240px] max-w-2xl">
+    <div ref={containerRef} className="relative flex-1 min-w-0 sm:min-w-[240px] max-w-2xl">
       <div className="relative flex items-center">
         <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
         <input
@@ -208,18 +209,7 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
                         <span className="w-7 text-[11px] font-mono tabular-nums text-slate-400 dark:text-slate-500 shrink-0">
                           #{coin.rank}
                         </span>
-                        {coin.image ? (
-                          <img
-                            src={coin.image}
-                            alt={coin.symbol}
-                            referrerPolicy="no-referrer"
-                            className="w-6 h-6 rounded-full shrink-0 bg-slate-800"
-                          />
-                        ) : (
-                          <div className="w-6 h-6 rounded-full shrink-0 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center font-mono text-[10px] font-bold">
-                            {coin.symbol.slice(0, 2)}
-                          </div>
-                        )}
+                        <CoinLogo coin={coin} size="md" />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">

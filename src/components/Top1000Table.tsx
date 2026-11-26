@@ -39,6 +39,14 @@ interface Top1000TableProps {
 }
 
 type SortField = 'rank' | 'priceUsd' | 'change1h' | 'change24h' | 'change7d' | 'marketCapUsd' | 'volume24hUsd';
+type RankTierCap = 100 | 200 | 500 | 1000;
+
+const RANK_TIERS: Array<{ cap: RankTierCap; label: string }> = [
+  { cap: 100, label: 'Top 100' },
+  { cap: 200, label: 'Top 200' },
+  { cap: 500, label: 'Top 500' },
+  { cap: 1000, label: 'All (1000)' },
+];
 
 const SparklineSvg: React.FC<{ data: number[]; positive: boolean }> = ({ data, positive }) => {
   if (!data || data.length < 2) return null;
@@ -87,6 +95,7 @@ export const Top1000Table: React.FC<Top1000TableProps> = ({
 }) => {
   const { recordLookup, wipeVersion } = usePrivacy();
   const [search, setSearch] = useState('');
+  const [rankCap, setRankCap] = useState<RankTierCap>(1000);
   const [sortField, setSortField] = useState<SortField>('rank');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
@@ -108,6 +117,7 @@ export const Top1000Table: React.FC<Top1000TableProps> = ({
   const filteredAndSorted = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = coins.filter((c) => {
+      if (c.rank > rankCap) return false;
       if (!q) return true;
       return (
         c.name.toLowerCase().includes(q) ||
@@ -122,7 +132,7 @@ export const Top1000Table: React.FC<Top1000TableProps> = ({
       const vb = b[sortField];
       return sortDir === 'asc' ? va - vb : vb - va;
     });
-  }, [coins, search, sortField, sortDir]);
+  }, [coins, rankCap, search, sortField, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -154,11 +164,11 @@ export const Top1000Table: React.FC<Top1000TableProps> = ({
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-lg font-bold text-slate-900 dark:text-slate-100">
-              Top 1000 Cryptocurrencies by Market Cap
+              Top {allCoins.length} Real Cryptocurrencies by Market Cap
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Showing {filteredAndSorted.length === 0 ? 0 : (safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filteredAndSorted.length)} of{' '}
-              <span className="font-mono tabular-nums">{filteredAndSorted.length}</span> assets · Click any row for live TradingView chart & stats
+              <span className="font-mono tabular-nums">{filteredAndSorted.length}</span> verified assets · Click any row for live TradingView chart &amp; stats
             </p>
           </div>
 
@@ -177,10 +187,40 @@ export const Top1000Table: React.FC<Top1000TableProps> = ({
               />
             </div>
 
+            {/* Market Cap Rank Tier Buttons */}
+            <div
+              role="group"
+              aria-label="Market cap rank tier filter"
+              className="inline-flex items-center gap-1 p-1 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-900"
+            >
+              {RANK_TIERS.map((tier) => {
+                const active = rankCap === tier.cap;
+                const buttonLabel =
+                  tier.cap === 1000 ? `All (${allCoins.length})` : tier.label;
+                return (
+                  <button
+                    key={tier.cap}
+                    type="button"
+                    onClick={() => {
+                      setRankCap(tier.cap);
+                      setPage(1);
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                      active
+                        ? 'bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950 shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/70 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    {buttonLabel}
+                  </button>
+                );
+              })}
+            </div>
+
             <button
               type="button"
               onClick={onOpenFilters}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 activeFilterCount > 0
                   ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
                   : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'
@@ -195,15 +235,16 @@ export const Top1000Table: React.FC<Top1000TableProps> = ({
               )}
             </button>
 
-            {(activeFilterCount > 0 || selectedNetwork !== 'All Networks' || search.trim()) && (
+            {(activeFilterCount > 0 || selectedNetwork !== 'All Networks' || search.trim() || rankCap !== 1000) && (
               <button
                 type="button"
                 onClick={() => {
                   setSearch('');
+                  setRankCap(1000);
                   onResetAllFilters();
                   setPage(1);
                 }}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer whitespace-nowrap shrink-0"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Clear</span>

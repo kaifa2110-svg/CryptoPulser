@@ -24,6 +24,10 @@ export interface CheckoutReceipt {
 export type NavTab =
   | 'top1000'
   | 'trending'
+  | 'crypto-bubbles'
+  | 'gainers-losers'
+  | 'rwa'
+  | 'ipo-launchpad'
   | 'watchlist'
   | 'altcoins'
   | 'news'
@@ -38,7 +42,8 @@ export type MarketSubTab =
   | 'etf-tracker'
   | 'yield'
   | 'technical-indicators'
-  | 'dex-scan';
+  | 'dex-scan'
+  | 'whale-sonar';
 
 export type BlockchainNetwork =
   | 'All Networks'
@@ -414,6 +419,27 @@ export interface SecurityActivityEntry {
   timestamp: string;
 }
 
+export type WalletProviderId =
+  | 'metamask'
+  | 'trust'
+  | 'phantom'
+  | 'coinbase'
+  | 'ledger'
+  | 'demo_judge';
+
+export interface VerifiedWallet {
+  id: string;
+  providerId: WalletProviderId;
+  providerName: string;
+  label: string;
+  address: string;
+  network: 'Ethereum (0x)' | 'Solana';
+  signature: string;
+  signedMessage: string;
+  verifiedAt: string;
+  isDemo?: boolean;
+}
+
 export interface UserAccountProfile {
   id: string;
   displayName: string;
@@ -438,3 +464,18 @@ export interface UserAccountProfile {
   devices?: DeviceSession[];
   activities?: SecurityActivityEntry[];
 }
+
+export type SponsoredAdSlot = 'vault' | 'pulser-square' | 'liquidity';
+
+export interface CustomSponsoredAd {
+  id: string;
+  slot: SponsoredAdSlot;
+  sponsorLabel: string;
+  headline: string;
+  description: string;
+  imageUrl: string;
+  targetUrl: string;
+  ctaLabel: string;
+  updatedAt: string;
+}
+

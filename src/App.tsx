@@ -7,6 +7,7 @@ import {
   Gauge,
   Radar,
   Sprout,
+  Waves,
 } from 'lucide-react';
 import { AdvertiseModal } from './components/AdvertiseModal';
 import { AlertCenterPopover, AlertToastStack } from './components/AlertCenterPopover';
@@ -17,17 +18,22 @@ import { AuthModal } from './components/AuthModal';
 import { BubbleRadarView } from './components/BubbleRadarView';
 import { CheckoutModal } from './components/CheckoutModal';
 import { CoinDetailModal } from './components/CoinDetailModal';
+import { CryptoBubblesView } from './components/CryptoBubblesView';
 import { DerivativesView } from './components/DerivativesView';
 import { DexScanView } from './components/DexScanView';
 import { EtfTrackerView } from './components/EtfTrackerView';
+import { GainersLosersView } from './components/GainersLosersView';
 import { InvestmentSimulator } from './components/InvestmentSimulator';
+import { IpoLaunchpadView } from './components/IpoLaunchpadView';
 import { LiquidityMapView } from './components/LiquidityMapView';
 import { MarketToolbar } from './components/MarketToolbar';
+import { MyWalletDrawer } from './components/MyWalletDrawer';
 import { NewsView } from './components/NewsView';
 import { PrivacyLockOverlay } from './components/PrivacyLockOverlay';
 import { ProFilterDrawer } from './components/ProFilterDrawer';
 import { ProPricingModal } from './components/ProPricingModal';
 import { PulserSquareView } from './components/PulserSquareView';
+import { RwaHubView } from './components/RwaHubView';
 import { SettingsModal } from './components/SettingsModal';
 import { SharePageModal } from './components/SharePageModal';
 import { SponsoredBanner } from './components/SponsoredBanner';
@@ -55,6 +61,7 @@ import {
   CheckoutReceipt,
   Coin,
   CurrencyCode,
+  CustomSponsoredAd,
   FxRates,
   GlobalMarketStats,
   LaunchScreenOption,
@@ -64,6 +71,7 @@ import {
   PlanTier,
   PriceWhaleAlert,
   ProMarketFilters,
+  SponsoredAdSlot,
   SquarePost,
 } from './types/crypto';
 import { CURRENCY_META, formatPrice } from './utils/formatters';
@@ -123,10 +131,10 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
     launchScreen,
     pushNotificationsEnabled,
     logSecurityActivity,
+    verifiedWallets,
   } = useUserAccount();
   const [activeTab, setActiveTab] = useState<NavTab>(() => {
     if (launchScreen === 'Pulser Square') return 'pulser-square';
-    if (launchScreen === 'Whale Sonar') return 'whale-sonar';
     return 'top1000';
   });
   const [currency, setCurrency] = useState<CurrencyCode>(() =>
@@ -159,7 +167,9 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
   const [simulatorCoinId, setSimulatorCoinId] = useState<string>('bitcoin');
   const [radarCoinId, setRadarCoinId] = useState<string>('ethereum');
   const [liquidityCoinId, setLiquidityCoinId] = useState<string>('bitcoin');
-  const [marketSubTab, setMarketSubTab] = useState<MarketSubTab>('coins');
+  const [marketSubTab, setMarketSubTab] = useState<MarketSubTab>(() =>
+    launchScreen === 'Whale Sonar' ? 'whale-sonar' : 'coins'
+  );
   const [selectedNetwork, setSelectedNetwork] = useState<BlockchainNetwork>('All Networks');
   const [proFilters, setProFilters] = useState<ProMarketFilters>(EMPTY_PRO_FILTERS);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
@@ -170,12 +180,22 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
   const [checkoutPlan, setCheckoutPlan] = useState<'pro' | 'pro_max'>('pro');
   const [checkoutTrial, setCheckoutTrial] = useState(false);
   const [advertiseModalOpen, setAdvertiseModalOpen] = useState(false);
+  const [advertiseSlot, setAdvertiseSlot] = useState<SponsoredAdSlot>('vault');
+  const [advertiseMode, setAdvertiseMode] = useState<'customize' | 'inquiry'>('customize');
+  const [customAds, setCustomAds] = useState<Partial<Record<SponsoredAdSlot, CustomSponsoredAd>>>(
+    () => readStorage<Partial<Record<SponsoredAdSlot, CustomSponsoredAd>>>('cp_custom_ads', {})
+  );
 
   const [alertCenterOpen, setAlertCenterOpen] = useState(false);
   const [alertTargetCoin, setAlertTargetCoin] = useState<Coin | null>(null);
   const [alertTargetKind, setAlertTargetKind] = useState<AlertKind>('price_above');
   const [antiFomoOpen, setAntiFomoOpen] = useState(false);
   const [antiFomoCoin, setAntiFomoCoin] = useState<Coin | null>(null);
+  const [myWalletOpen, setMyWalletOpen] = useState(false);
+  const [whaleSonarTargetAddress, setWhaleSonarTargetAddress] = useState<{
+    address: string;
+    nonce: number;
+  } | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
@@ -213,6 +233,10 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
     localStorage.setItem('cp_square_posts', JSON.stringify(squarePosts));
   }, [squarePosts]);
 
+  useEffect(() => {
+    localStorage.setItem('cp_custom_ads', JSON.stringify(customAds));
+  }, [customAds]);
+
   // If user configured Launch Screen = Simulator, smoothly scroll to Simulator on initial mount
   useEffect(() => {
     if (launchScreen !== 'Simulator') return;
@@ -249,7 +273,11 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
   const fetchMarkets = useCallback(async (manual = false) => {
     if (manual) setIsRefreshing(true);
     try {
-      const res = await fetch('/api/markets');
+      const headers: Record<string, string> = {};
+      if (cmcApiKey && cmcApiKey.trim()) {
+        headers['x-cmc-api-key'] = cmcApiKey.trim();
+      }
+      const res = await fetch('/api/markets', { headers });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data?.coins)) setLiveCoinsRaw(data.coins);
@@ -275,7 +303,7 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
       setIsLoadingMarkets(false);
       setIsRefreshing(false);
     }
-  }, [pushToast]);
+  }, [pushToast, cmcApiKey]);
 
   const fetchNews = useCallback(async () => {
     try {
@@ -507,11 +535,29 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
     });
   };
 
+  const handleSelectNavTab = useCallback(
+    (tab: NavTab) => {
+      if (tab === 'whale-sonar') {
+        setActiveTab('top1000');
+        setMarketSubTab('whale-sonar');
+      } else {
+        if (tab === 'top1000' && marketSubTab === 'whale-sonar') {
+          setMarketSubTab('coins');
+        }
+        setActiveTab(tab);
+      }
+    },
+    [marketSubTab]
+  );
+
+  const effectiveTopBarTab: NavTab =
+    activeTab === 'top1000' && marketSubTab === 'whale-sonar' ? 'whale-sonar' : activeTab;
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#090D16] text-slate-900 dark:text-slate-100">
+    <div className="min-h-screen w-full overflow-x-clip flex flex-col bg-slate-50 dark:bg-[#090D16] text-slate-900 dark:text-slate-100">
       <TopBar
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
+        activeTab={effectiveTopBarTab}
+        onSelectTab={handleSelectNavTab}
         onJumpToSimulator={() => jumpToSimulator()}
         currency={currency}
         fxRates={fxRates}
@@ -525,6 +571,8 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
           setAntiFomoCoin(coins[0] || null);
           setAntiFomoOpen(true);
         }}
+        onOpenMyWallet={() => setMyWalletOpen(true)}
+        savedWalletCount={verifiedWallets.length}
       />
 
       <MarketToolbar
@@ -536,7 +584,7 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
         isDark={isDark}
         onToggleTheme={() => setThemePref(isDark ? 'light' : 'dark')}
         activeTab={activeTab}
-        onSelectTab={setActiveTab}
+        onSelectTab={handleSelectNavTab}
         watchlistCount={watchlistIds.length}
         isPro={isPro}
         isRefreshing={isRefreshing}
@@ -545,21 +593,31 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
         onSelectCoin={setDetailCoin}
       />
 
-      <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Top Sponsored Placement (Free Tier Only) */}
+      <main className="flex-1 w-full max-w-[1440px] mx-auto px-4 py-6 space-y-6 overflow-x-hidden min-w-0">
+        {/* Top Sponsored Placement (Free Tier or Custom Banner) */}
         <SponsoredBanner
           variant="vault"
           isPro={isPro}
-          onOpenAdvertise={() => setAdvertiseModalOpen(true)}
+          customAd={customAds.vault ?? null}
+          onOpenAdvertise={() => {
+            setAdvertiseSlot('vault');
+            setAdvertiseMode('inquiry');
+            setAdvertiseModalOpen(true);
+          }}
+          onCustomizeAd={(slot) => {
+            setAdvertiseSlot(slot);
+            setAdvertiseMode('customize');
+            setAdvertiseModalOpen(true);
+          }}
           onOpenProModal={() => setProModalOpen(true)}
         />
 
         {/* Active Navigation View */}
         {activeTab === 'top1000' && (
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             {/* CoinMarketCap-style Pro Markets Sub-Tabs */}
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101624] p-2">
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0 flex-1">
                 {(
                   [
                     {
@@ -597,7 +655,13 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
                       label: 'DEX Scan',
                       icon: <Radar className="w-3.5 h-3.5" />,
                     },
-                  ] as Array<{ id: MarketSubTab; label: string; icon: React.ReactNode }>
+                    {
+                      id: 'whale-sonar',
+                      label: 'Whale Sonar',
+                      pro: true,
+                      icon: <Waves className="w-3.5 h-3.5" />,
+                    },
+                  ] as Array<{ id: MarketSubTab; label: string; pro?: boolean; icon: React.ReactNode }>
                 ).map((sub) => {
                   const active = marketSubTab === sub.id;
                   return (
@@ -613,6 +677,17 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
                     >
                       {sub.icon}
                       <span>{sub.label}</span>
+                      {sub.pro && !isPro && (
+                        <span
+                          className={`text-[10px] font-mono uppercase tracking-wider ${
+                            active
+                              ? 'text-amber-300 dark:text-slate-950/80'
+                              : 'text-amber-500 dark:text-amber-400'
+                          }`}
+                        >
+                          PRO
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -709,11 +784,62 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
                 onSelectCoin={setDetailCoin}
               />
             )}
+
+            {marketSubTab === 'whale-sonar' && (
+              <WhaleSonarView
+                coins={coins}
+                currency={currency}
+                fxRates={fxRates}
+                isPro={isPro}
+                onOpenProModal={() => setProModalOpen(true)}
+                onSelectCoin={setDetailCoin}
+                onOpenAlertForCoin={(c, kind) => openAlertForCoin(c, kind || 'whale_transfer')}
+                externalInspectWallet={whaleSonarTargetAddress}
+              />
+            )}
           </div>
         )}
 
         {activeTab === 'trending' && (
           <TrendingView
+            coins={coins}
+            currency={currency}
+            fxRates={fxRates}
+            onSelectCoin={setDetailCoin}
+          />
+        )}
+
+        {activeTab === 'crypto-bubbles' && (
+          <CryptoBubblesView
+            coins={coins}
+            watchlistIds={watchlistIds}
+            currency={currency}
+            fxRates={fxRates}
+            isDark={isDark}
+            onSelectCoin={setDetailCoin}
+          />
+        )}
+
+        {activeTab === 'gainers-losers' && (
+          <GainersLosersView
+            coins={coins}
+            currency={currency}
+            fxRates={fxRates}
+            onSelectCoin={setDetailCoin}
+          />
+        )}
+
+        {activeTab === 'rwa' && (
+          <RwaHubView
+            coins={coins}
+            currency={currency}
+            fxRates={fxRates}
+            onSelectCoin={setDetailCoin}
+          />
+        )}
+
+        {activeTab === 'ipo-launchpad' && (
+          <IpoLaunchpadView
             coins={coins}
             currency={currency}
             fxRates={fxRates}
@@ -802,6 +928,19 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
               )
             }
             onSelectCoin={setDetailCoin}
+            isPro={isPro}
+            pulserSquareAd={customAds['pulser-square'] ?? null}
+            onOpenAdvertise={() => {
+              setAdvertiseSlot('pulser-square');
+              setAdvertiseMode('inquiry');
+              setAdvertiseModalOpen(true);
+            }}
+            onCustomizeAd={() => {
+              setAdvertiseSlot('pulser-square');
+              setAdvertiseMode('customize');
+              setAdvertiseModalOpen(true);
+            }}
+            onOpenProModal={() => setProModalOpen(true)}
             onNotifyShare={(msg) =>
               pushToast({
                 title: 'Pulser Square',
@@ -824,23 +963,21 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
           />
         )}
 
-        {activeTab === 'whale-sonar' && (
-          <WhaleSonarView
-            coins={coins}
-            currency={currency}
-            fxRates={fxRates}
-            isPro={isPro}
-            onOpenProModal={() => setProModalOpen(true)}
-            onSelectCoin={setDetailCoin}
-            onOpenAlertForCoin={(c, kind) => openAlertForCoin(c, kind || 'whale_transfer')}
-          />
-        )}
-
-        {/* Secondary Sponsored Placement (Free Tier Only) */}
+        {/* Secondary Sponsored Placement (Free Tier or Custom Banner) */}
         <SponsoredBanner
           variant="liquidity"
           isPro={isPro}
-          onOpenAdvertise={() => setAdvertiseModalOpen(true)}
+          customAd={customAds.liquidity ?? null}
+          onOpenAdvertise={() => {
+            setAdvertiseSlot('liquidity');
+            setAdvertiseMode('inquiry');
+            setAdvertiseModalOpen(true);
+          }}
+          onCustomizeAd={(slot) => {
+            setAdvertiseSlot(slot);
+            setAdvertiseMode('customize');
+            setAdvertiseModalOpen(true);
+          }}
           onOpenProModal={() => setProModalOpen(true)}
         />
 
@@ -858,8 +995,8 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
         )}
       </main>
 
-      <footer className="border-t border-slate-200 dark:border-slate-800/80 py-5 px-4 sm:px-6 text-xs text-slate-500 dark:text-slate-400">
-        <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-3">
+      <footer className="w-full border-t border-slate-200 dark:border-slate-800/80 py-5 text-xs text-slate-500 dark:text-slate-400">
+        <div className="w-full max-w-[1440px] mx-auto px-4 flex flex-wrap items-center justify-between gap-3">
           <span>CryptoPulser.com · Real-Time Digital Asset Intelligence</span>
           <div className="flex items-center gap-4">
             <button
@@ -871,7 +1008,11 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setAdvertiseModalOpen(true)}
+              onClick={() => {
+                setAdvertiseSlot('vault');
+                setAdvertiseMode('customize');
+                setAdvertiseModalOpen(true);
+              }}
               className="hover:text-slate-900 dark:hover:text-slate-200 cursor-pointer"
             >
               Advertise
@@ -942,6 +1083,29 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
         onClose={() => setAdvertiseModalOpen(false)}
         currency={currency}
         fxRates={fxRates}
+        initialSlot={advertiseSlot}
+        initialMode={advertiseMode}
+        customAds={customAds}
+        onSaveCustomAd={(ad) => {
+          setCustomAds((prev) => ({ ...prev, [ad.slot]: ad }));
+          pushToast({
+            title: 'Sponsored Banner Published',
+            message: `"${ad.headline}" is now live on CryptoPulser.com.`,
+            kind: 'price_above',
+          });
+        }}
+        onResetCustomAd={(slot) => {
+          setCustomAds((prev) => {
+            const next = { ...prev };
+            delete next[slot];
+            return next;
+          });
+          pushToast({
+            title: 'Ad Slot Reset',
+            message: 'Restored default sponsored placement banner.',
+            kind: 'price_below',
+          });
+        }}
       />
 
       <AlertCenterPopover
@@ -1002,7 +1166,17 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
               ? 'Technical Indicators Screener'
               : marketSubTab === 'dex-scan'
               ? 'On-Chain DEX Pair Scanner'
+              : marketSubTab === 'whale-sonar'
+              ? 'Pulser Whale Sonar™'
               : 'Spot ETF Tracker'
+            : activeTab === 'crypto-bubbles'
+            ? 'Crypto Bubbles Live Visualizer'
+            : activeTab === 'gainers-losers'
+            ? 'Top 25 Gainers & Losers'
+            : activeTab === 'rwa'
+            ? 'RWA Real-World Assets Hub'
+            : activeTab === 'ipo-launchpad'
+            ? 'Crypto IPOs & Launchpads'
             : activeTab
         }
         globalStats={globalStats}
@@ -1021,6 +1195,10 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
         fxRates={fxRates}
         alerts={alerts}
         onOpenAlertCenter={() => openAlertForCoin(coins[0] || null, 'price_above')}
+        onDeepXrayInWhaleSonar={(address) => {
+          setWhaleSonarTargetAddress({ address, nonce: Date.now() });
+          handleSelectNavTab('whale-sonar');
+        }}
       />
 
       <SettingsModal
@@ -1028,14 +1206,28 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
         onChangeCurrency={setCurrency}
         fxRates={fxRates}
         onNavigateLaunchScreen={(scr: LaunchScreenOption) => {
-          if (scr === 'Pulser Square') setActiveTab('pulser-square');
-          else if (scr === 'Whale Sonar') setActiveTab('whale-sonar');
+          if (scr === 'Pulser Square') handleSelectNavTab('pulser-square');
+          else if (scr === 'Whale Sonar') handleSelectNavTab('whale-sonar');
           else if (scr === 'Simulator') jumpToSimulator();
-          else setActiveTab('top1000');
+          else handleSelectNavTab('top1000');
         }}
         onNotify={(title, message, kind = 'price_above') =>
           pushToast({ title, message, kind })
         }
+      />
+
+      <MyWalletDrawer
+        isOpen={myWalletOpen}
+        onClose={() => setMyWalletOpen(false)}
+        coins={coins}
+        currency={currency}
+        onChangeCurrency={setCurrency}
+        fxRates={fxRates}
+        onDeepXrayInWhaleSonar={(address) => {
+          setMyWalletOpen(false);
+          setWhaleSonarTargetAddress({ address, nonce: Date.now() });
+          handleSelectNavTab('whale-sonar');
+        }}
       />
 
       <PrivacyLockOverlay />

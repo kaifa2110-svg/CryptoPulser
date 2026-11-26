@@ -245,7 +245,7 @@ export const InvestmentSimulator: React.FC<InvestmentSimulatorProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-5">
         {/* Controls Column */}
-        <div className="lg:col-span-4 space-y-4">
+        <div className="lg:col-span-4 min-w-0 space-y-4">
           {/* Coin Selector */}
           <div className="relative">
             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
@@ -416,7 +416,7 @@ export const InvestmentSimulator: React.FC<InvestmentSimulatorProps> = ({
         </div>
 
         {/* Historical Growth Chart Column */}
-        <div className="lg:col-span-8 flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#0B101C] p-4">
+        <div className="lg:col-span-8 min-w-0 flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#0B101C] p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs mb-3">
             <div className="text-slate-600 dark:text-slate-300">
               {hovered ? (

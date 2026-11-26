@@ -18,6 +18,7 @@ import {
   Settings,
   Sparkles,
   Sun,
+  Wallet,
   X,
 } from 'lucide-react';
 import {
@@ -33,7 +34,15 @@ import {
   ThemePreference,
 } from '../types/crypto';
 import { CURRENCY_META, formatPrice } from '../utils/formatters';
+import {
+  SAFE_IMAGE_ACCEPT_ATTR,
+  sanitizeHttpUrl,
+  validateSafeImageFile,
+} from '../utils/sanitize';
+import { StealthValue } from './StealthText';
 import { UserAvatar } from './UserAvatar';
+import { VerifiedWalletManager } from './VerifiedWalletManager';
+import { WalletProviderIcon } from './WalletProviderIcon';
 
 interface UserProfileDrawerProps {
   coins: Coin[];
@@ -42,10 +51,12 @@ interface UserProfileDrawerProps {
   fxRates: FxRates;
   alerts: PriceWhaleAlert[];
   onOpenAlertCenter: () => void;
+  onDeepXrayInWhaleSonar?: (address: string) => void;
 }
 
 type DrawerSection =
   | 'overview'
+  | 'wallets'
   | 'edit'
   | 'converter'
   | 'airdrops'
@@ -105,6 +116,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
   fxRates,
   alerts,
   onOpenAlertCenter,
+  onDeepXrayInWhaleSonar,
 }) => {
   const {
     currentUser,
@@ -120,7 +132,9 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
     toggleTrackAirdrop,
     openSettingsModal,
     logout,
+    verifiedWallets,
   } = useUserAccount();
+  const [walletInitialTab, setWalletInitialTab] = useState<'portfolio' | 'receive'>('portfolio');
 
   const [section, setSection] = useState<DrawerSection>('overview');
 
@@ -131,6 +145,7 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
   const [editWebsite, setEditWebsite] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
   const [editPresetId, setEditPresetId] = useState('pulsar-cyan');
+  const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
 
   // Converter state
   const [convCoinId, setConvCoinId] = useState('bitcoin');
@@ -170,7 +185,14 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
+    const check = validateSafeImageFile(file);
+    if (!check.valid) {
+      setAvatarUploadError(check.error);
+      return;
+    }
+    setAvatarUploadError(null);
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
@@ -231,6 +253,8 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
             <span className="font-display text-sm font-bold text-slate-900 dark:text-slate-100">
               {section === 'overview'
                 ? 'My CryptoPulser Profile'
+                : section === 'wallets'
+                ? 'Verified Wallets & Receive QR'
                 : section === 'edit'
                 ? 'Edit Profile & Social Link'
                 : section === 'converter'
@@ -294,27 +318,30 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                   </p>
                 )}
 
-                {currentUser.websiteUrl ? (
-                  <a
-                    href={currentUser.websiteUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-mono text-cyan-600 dark:text-cyan-400 hover:underline break-all"
-                  >
-                    <Link2 className="w-3.5 h-3.5 shrink-0" />
-                    <span>{currentUser.websiteUrl.replace(/^https?:\/\//i, '')}</span>
-                    <ExternalLink className="w-3 h-3 shrink-0" />
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setSection('edit')}
-                    className="inline-flex items-center gap-1 text-[11px] font-mono text-slate-400 hover:text-cyan-400 cursor-pointer"
-                  >
-                    <Link2 className="w-3 h-3" />
-                    <span>+ Attach website or X/social link (syncs to Pulser Square)</span>
-                  </button>
-                )}
+                {(() => {
+                  const safeSite = sanitizeHttpUrl(currentUser.websiteUrl);
+                  return safeSite ? (
+                    <a
+                      href={safeSite}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-mono text-cyan-600 dark:text-cyan-400 hover:underline break-all"
+                    >
+                      <Link2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>{safeSite.replace(/^https?:\/\//i, '')}</span>
+                      <ExternalLink className="w-3 h-3 shrink-0" />
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setSection('edit')}
+                      className="inline-flex items-center gap-1 text-[11px] font-mono text-slate-400 hover:text-cyan-400 cursor-pointer"
+                    >
+                      <Link2 className="w-3 h-3" />
+                      <span>+ Attach website or X/social link (syncs to Pulser Square)</span>
+                    </button>
+                  );
+                })()}
               </div>
 
               {/* Live Price Alert Notification Banner */}
@@ -335,23 +362,96 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                       {latestAlert?.triggeredAt ? 'Alert Triggered' : 'Live Price Alert Pulse'}
                     </div>
                     <p className="text-xs text-slate-700 dark:text-slate-200 truncate mt-0.5">
-                      {latestAlert
-                        ? `${latestAlert.coinName} (${latestAlert.symbol}) ${
-                            latestAlert.triggeredAt ? 'reached target' : 'monitoring'
-                          } ${CURRENCY_META[latestAlert.createdInCurrency].symbol}${latestAlert.displayThreshold.toLocaleString('en-US')}`
-                        : `Bitcoin (BTC) reached ${
-                            btcCoin
-                              ? formatPrice(btcCoin.priceUsd, currency, fxRates)
-                              : '$94,280.00'
-                          } · Tap to configure custom targets`}
+                      {latestAlert ? (
+                        <>
+                          {latestAlert.coinName} ({latestAlert.symbol}){' '}
+                          {latestAlert.triggeredAt ? 'reached target' : 'monitoring'}{' '}
+                          <StealthValue>
+                            {CURRENCY_META[latestAlert.createdInCurrency].symbol}
+                            {latestAlert.displayThreshold.toLocaleString('en-US')}
+                          </StealthValue>
+                        </>
+                      ) : (
+                        `Bitcoin (BTC) reached ${
+                          btcCoin
+                            ? formatPrice(btcCoin.priceUsd, currency, fxRates)
+                            : '$94,280.00'
+                        } · Tap to configure custom targets`
+                      )}
                     </p>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-cyan-500 shrink-0" />
               </button>
 
-              {/* 3 Quick-Action Tiles */}
-              <div className="grid grid-cols-3 gap-2">
+              {/* Verified Wallets & Receive QR Card inside Profile */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-[#11182A]/90 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Wallet className="w-4 h-4 text-cyan-500 shrink-0" />
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                      Verified Wallets ({verifiedWallets.length})
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWalletInitialTab('portfolio');
+                      setSection('wallets');
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-[11px] font-bold cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    <span>{verifiedWallets.length > 0 ? 'Manage & Connect' : '1-Click Connect'}</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+
+                {verifiedWallets.length === 0 ? (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Link MetaMask, Trust Wallet, Phantom, Coinbase, Ledger, or Demo Judge Wallet via free zero-gas signature to stream live ETH &amp; SOL balances.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {verifiedWallets.map((w) => (
+                      <div
+                        key={w.id}
+                        className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0D1321]"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <WalletProviderIcon providerId={w.providerId} size={20} className="shrink-0" />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                                {w.providerName}
+                              </span>
+                              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-500 whitespace-nowrap">
+                                <Check className="w-3 h-3" />
+                                <span>Verified Owner</span>
+                              </span>
+                            </div>
+                            <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                              {w.network} · {w.address.slice(0, 6)}...{w.address.slice(-4)}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setWalletInitialTab('receive');
+                            setSection('wallets');
+                          }}
+                          className="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-700 dark:text-slate-200 hover:border-cyan-500 cursor-pointer whitespace-nowrap shrink-0"
+                        >
+                          Receive QR
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 4 Quick-Action Tiles (2x2 Grid for clean spacing) */}
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -412,6 +512,30 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                     </div>
                     <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
                       {AIRDROPS.length} active
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWalletInitialTab('receive');
+                    setSection('wallets');
+                  }}
+                  className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#11182A] hover:border-emerald-500/50 p-3 text-left transition-colors cursor-pointer flex flex-col justify-between"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <Wallet className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span className="font-mono text-[10px] font-bold text-emerald-500 tabular-nums">
+                      {verifiedWallets.length}
+                    </span>
+                  </div>
+                  <div className="mt-2.5">
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                      Wallets &amp; QR
+                    </div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                      Verified RPC
                     </div>
                   </div>
                 </button>
@@ -542,6 +666,22 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
             </>
           )}
 
+          {/* VERIFIED WALLETS & RECEIVE QR SECTION */}
+          {section === 'wallets' && (
+            <VerifiedWalletManager
+              coins={coins}
+              currency={currency}
+              onChangeCurrency={onChangeCurrency}
+              fxRates={fxRates}
+              initialSubTab={walletInitialTab}
+              compactHeader
+              onDeepXrayInWhaleSonar={(addr) => {
+                setProfileDrawerOpen(false);
+                onDeepXrayInWhaleSonar?.(addr);
+              }}
+            />
+          )}
+
           {/* EDIT PROFILE SECTION */}
           {section === 'edit' && (
             <form onSubmit={handleSaveProfile} className="space-y-4">
@@ -560,11 +700,14 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                       <span>Upload Custom Photo</span>
                       <input
                         type="file"
-                        accept="image/*"
+                        accept={SAFE_IMAGE_ACCEPT_ATTR}
                         onChange={handleAvatarUpload}
                         className="hidden"
                       />
                     </label>
+                    {avatarUploadError && (
+                      <p className="text-[11px] text-rose-500">{avatarUploadError}</p>
+                    )}
                     {editAvatarUrl && (
                       <button
                         type="button"
@@ -690,9 +833,9 @@ export const UserProfileDrawer: React.FC<UserProfileDrawerProps> = ({
                       onChange={(e) => setConvCoinId(e.target.value)}
                       className="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
                     >
-                      {coins.slice(0, 50).map((c) => (
+                      {coins.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.symbol}
+                          #{c.rank} {c.symbol} · {c.name}
                         </option>
                       ))}
                     </select>

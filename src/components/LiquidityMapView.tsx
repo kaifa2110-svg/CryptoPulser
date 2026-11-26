@@ -112,7 +112,7 @@ export const LiquidityMapView: React.FC<LiquidityMapViewProps> = ({
               aria-label="Select asset for liquidity map"
               className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
-              {coins.slice(0, 100).map((c) => (
+              {coins.map((c) => (
                 <option key={c.id} value={c.id}>
                   #{c.rank} {c.name} ({c.symbol})
                 </option>

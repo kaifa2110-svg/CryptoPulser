@@ -21,12 +21,20 @@ import { useUserAccount } from '../context/UserAccountContext';
 import {
   Coin,
   CurrencyCode,
+  CustomSponsoredAd,
   FxRates,
   SquareFilterTab,
   SquarePost,
   SquareSentiment,
 } from '../types/crypto';
 import { formatPercent, formatPrice } from '../utils/formatters';
+import {
+  SAFE_IMAGE_ACCEPT_ATTR,
+  sanitizeHttpUrl,
+  sanitizeSafeImageUrl,
+  validateSafeImageFile,
+} from '../utils/sanitize';
+import { SponsoredBanner } from './SponsoredBanner';
 import { UserAvatar } from './UserAvatar';
 
 interface PulserSquareViewProps {
@@ -40,6 +48,11 @@ interface PulserSquareViewProps {
   onAddComment: (postId: string, content: string) => void;
   onSelectCoin: (coin: Coin) => void;
   onNotifyShare: (msg: string) => void;
+  isPro?: boolean;
+  pulserSquareAd?: CustomSponsoredAd | null;
+  onOpenAdvertise?: () => void;
+  onCustomizeAd?: () => void;
+  onOpenProModal?: () => void;
 }
 
 const FILTER_TABS: SquareFilterTab[] = [
@@ -72,6 +85,11 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
   onAddComment,
   onSelectCoin,
   onNotifyShare,
+  isPro = false,
+  pulserSquareAd = null,
+  onOpenAdvertise,
+  onCustomizeAd,
+  onOpenProModal,
 }) => {
   const { incognitoMode, wipeVersion } = usePrivacy();
   const { currentUser, setAuthModalOpen, setProfileDrawerOpen } = useUserAccount();
@@ -90,6 +108,10 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
   const [sentiment, setSentiment] = useState<SquareSentiment>('bullish');
   const [attachChart, setAttachChart] = useState(false);
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
+  const [imageUrlDraft, setImageUrlDraft] = useState('');
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [brokenImagePostIds, setBrokenImagePostIds] = useState<Record<string, boolean>>({});
 
   // Comment drawers
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
@@ -121,20 +143,46 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
 
   const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
+    const check = validateSafeImageFile(file);
+    if (!check.valid) {
+      setImageUploadError(check.error);
+      return;
+    }
+    setImageUploadError(null);
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         setAttachedImage(reader.result);
+        setImageUrlDraft('');
+        setImagePickerOpen(false);
       }
     };
     reader.readAsDataURL(file);
   };
 
+  const handleApplyImageUrl = () => {
+    const trimmed = imageUrlDraft.trim();
+    if (!trimmed) {
+      setImageUploadError('Enter an image URL or choose a photo file.');
+      return;
+    }
+    const safeUrl = sanitizeSafeImageUrl(trimmed, false);
+    if (!safeUrl) {
+      setImageUploadError('Please enter a valid https:// or http:// image URL.');
+      return;
+    }
+    setImageUploadError(null);
+    setAttachedImage(safeUrl);
+    setImageUrlDraft('');
+    setImagePickerOpen(false);
+  };
+
   const handlePublish = (e: React.FormEvent) => {
     e.preventDefault();
     const body = draftText.trim();
-    if (!body) return;
+    if (!body && !attachedImage && !attachChart) return;
 
     const extractedHashtags = body.match(/#[A-Za-z0-9_]+/g) || [];
     const primaryCoin = coins.find((c) => c.symbol === selectedTags[0]) || coins[0];
@@ -187,6 +235,9 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
     setDraftText('');
     setAttachChart(false);
     setAttachedImage(null);
+    setImagePickerOpen(false);
+    setImageUrlDraft('');
+    setImageUploadError(null);
   };
 
   const filteredPosts = useMemo(() => {
@@ -215,7 +266,7 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       {/* Main Feed Column */}
-      <div className="lg:col-span-8 space-y-5">
+      <div className="lg:col-span-8 min-w-0 space-y-5">
         {/* 1. Create Post Box (Top of Feed) */}
         <form
           onSubmit={handlePublish}
@@ -343,18 +394,72 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
                   <span className="font-mono text-[11px] text-emerald-500">Attached</span>
                 </div>
               )}
-              {attachedImage && (
-                <img
-                  src={attachedImage}
-                  alt="Post attachment preview"
-                  className="mt-2 max-h-48 rounded-lg object-cover"
-                />
-              )}
+              {(() => {
+                const safePreviewImg = sanitizeSafeImageUrl(attachedImage, true);
+                return (
+                  safePreviewImg && (
+                    <img
+                      src={safePreviewImg}
+                      alt="Post attachment preview"
+                      referrerPolicy="no-referrer"
+                      onError={() => {
+                        setAttachedImage(null);
+                        setImageUploadError('Could not load that image URL. Try another image link or upload a file.');
+                      }}
+                      className="mt-2 max-h-48 rounded-lg object-cover"
+                    />
+                  )
+                );
+              })()}
             </div>
           )}
 
+          {imagePickerOpen && (
+            <div className="rounded-xl border border-cyan-500/35 bg-slate-50/90 dark:bg-[#0B101C] p-3 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-cyan-500" />
+                  <span>Attach Picture (File Upload or Image URL)</span>
+                </span>
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white dark:bg-cyan-500 dark:text-slate-950 text-xs font-semibold cursor-pointer hover:opacity-90">
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  <span>Choose Photo File</span>
+                  <input
+                    type="file"
+                    accept={SAFE_IMAGE_ACCEPT_ATTR}
+                    onChange={handleImagePick}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="url"
+                  value={imageUrlDraft}
+                  onChange={(e) => {
+                    setImageUrlDraft(e.target.value);
+                    setImageUploadError(null);
+                  }}
+                  placeholder="Or paste image URL (https://example.com/chart.png)"
+                  className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyImageUrl}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-cyan-500 cursor-pointer shrink-0"
+                >
+                  Attach URL
+                </button>
+              </div>
+            </div>
+          )}
+
+          {imageUploadError && (
+            <p className="text-[11px] text-rose-500">{imageUploadError}</p>
+          )}
+
           <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setAttachChart((a) => !a)}
@@ -368,21 +473,26 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
                 <span>Attach Live Chart</span>
               </button>
 
-              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => {
+                  setImagePickerOpen((open) => !open);
+                  setImageUploadError(null);
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer ${
+                  imagePickerOpen || attachedImage
+                    ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 bg-cyan-500/10'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
                 <ImageIcon className="w-3.5 h-3.5" />
-                <span>Image</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImagePick}
-                  className="hidden"
-                />
-              </label>
+                <span>Image / Photo</span>
+              </button>
             </div>
 
             <button
               type="submit"
-              disabled={!draftText.trim()}
+              disabled={!draftText.trim() && !attachedImage && !attachChart}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950 text-xs font-bold disabled:opacity-40 cursor-pointer"
             >
               <Send className="w-3.5 h-3.5" />
@@ -390,6 +500,18 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
             </button>
           </div>
         </form>
+
+        {/* Sponsored Banner / Advertising Slot inside Pulser Square */}
+        {onOpenAdvertise && onOpenProModal && (
+          <SponsoredBanner
+            variant="pulser-square"
+            isPro={isPro}
+            customAd={pulserSquareAd}
+            onOpenAdvertise={onOpenAdvertise}
+            onCustomizeAd={onCustomizeAd ? () => onCustomizeAd() : undefined}
+            onOpenProModal={onOpenProModal}
+          />
+        )}
 
         {/* 3. Feed Filter Tabs */}
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -436,7 +558,9 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
               const displayHandle = isOwnPost && currentUser ? currentUser.username : post.handle;
               const displayAvatarUrl = isOwnPost && currentUser ? currentUser.avatarUrl : post.authorAvatarUrl;
               const displayPresetId = isOwnPost && currentUser ? currentUser.avatarPresetId : undefined;
-              const displayWebsite = isOwnPost && currentUser ? currentUser.websiteUrl : post.authorWebsite;
+              const rawWebsite = isOwnPost && currentUser ? currentUser.websiteUrl : post.authorWebsite;
+              const displayWebsite = sanitizeHttpUrl(rawWebsite);
+              const safePostAttachmentImg = sanitizeSafeImageUrl(post.attachmentImage, true);
 
               return (
                 <article
@@ -565,13 +689,16 @@ export const PulserSquareView: React.FC<PulserSquareViewProps> = ({
                   </div>
 
                   {/* Optional Attachment */}
-                  {(post.attachmentImage || post.attachmentLabel) && (
+                  {((safePostAttachmentImg && !brokenImagePostIds[post.id]) || post.attachmentLabel) && (
                     <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-[#0B101C]">
-                      {post.attachmentImage && (
+                      {safePostAttachmentImg && !brokenImagePostIds[post.id] && (
                         <img
-                          src={post.attachmentImage}
+                          src={safePostAttachmentImg}
                           alt={post.attachmentLabel || 'Post media'}
                           referrerPolicy="no-referrer"
+                          onError={() =>
+                            setBrokenImagePostIds((prev) => ({ ...prev, [post.id]: true }))
+                          }
                           className="w-full max-h-64 object-cover"
                         />
                       )}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { COSMIC_AVATAR_PRESETS } from '../context/UserAccountContext';
+import { sanitizeSafeImageUrl } from '../utils/sanitize';
 
 interface UserAvatarProps {
   displayName: string;
@@ -16,11 +17,12 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
 }) => {
   const dim =
     size === 'sm' ? 'w-7 h-7 text-[11px]' : size === 'lg' ? 'w-14 h-14 text-lg' : 'w-10 h-10 text-xs';
+  const safeAvatarUrl = sanitizeSafeImageUrl(avatarUrl, true);
 
-  if (avatarUrl) {
+  if (safeAvatarUrl) {
     return (
       <img
-        src={avatarUrl}
+        src={safeAvatarUrl}
         alt={displayName}
         className={`${dim} rounded-full object-cover border border-cyan-400/50 shrink-0`}
       />

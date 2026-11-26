@@ -136,9 +136,9 @@ export const AlertCenterPopover: React.FC<AlertCenterPopoverProps> = ({
                 onChange={(e) => setSelectedCoinId(e.target.value)}
                 className="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100"
               >
-                {coins.slice(0, 100).map((c) => (
+                {coins.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.symbol} · {c.name}
+                    #{c.rank} {c.symbol} · {c.name}
                   </option>
                 ))}
               </select>

@@ -2,6 +2,7 @@ import React from 'react';
 import { Flame, TrendingDown, TrendingUp, Volume2 } from 'lucide-react';
 import { Coin, CurrencyCode, FxRates } from '../types/crypto';
 import { formatCompactCurrency, formatPercent, formatPrice } from '../utils/formatters';
+import { CoinLogo } from './CoinLogo';
 
 interface TrendingViewProps {
   coins: Coin[];
@@ -53,18 +54,7 @@ export const TrendingView: React.FC<TrendingViewProps> = ({
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="font-mono text-xs text-slate-400 w-6 shrink-0">#{coin.rank}</span>
-                {coin.image ? (
-                  <img
-                    src={coin.image}
-                    alt={coin.symbol}
-                    referrerPolicy="no-referrer"
-                    className="w-6 h-6 rounded-full shrink-0"
-                  />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-mono text-[10px] font-bold shrink-0">
-                    {coin.symbol.slice(0, 2)}
-                  </div>
-                )}
+                <CoinLogo coin={coin} size="md" />
                 <div className="min-w-0">
                   <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
                     {coin.name}

@@ -30,6 +30,7 @@ import {
   buildLiveMarketEngineReply,
   extractMentionedCoinsFromPrompt,
 } from '../utils/liveMarketAiFallback';
+import { PulsarLogo } from './PulsarLogo';
 
 interface AskPulserAIDrawerProps {
   coins: Coin[];
@@ -548,21 +549,39 @@ export const AskPulserAIDrawer: React.FC<AskPulserAIDrawerProps> = ({
 
   return (
     <>
-      {/* Floating Launcher Button */}
+      {/* Floating CryptoPulser.com Logo AI Launcher Button */}
       {!isOpen && showAiFloatie && (
-        <button
-          type="button"
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950 shadow-xl hover:opacity-95 transition-transform active:scale-95 text-xs font-bold cursor-pointer"
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>Ask Crypto Pulser AI</span>
-          {!isProMax && (
-            <span className="font-mono text-[10px] opacity-80 tabular-nums">
-              ({remainingBasic}/{DAILY_BASIC_LIMIT})
+        <div className="fixed bottom-5 right-5 z-40 group">
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            aria-label="Ask Crypto Pulser AI"
+            title="Ask Crypto Pulser AI"
+            className="relative w-14 h-14 rounded-2xl border border-cyan-400/50 bg-[#0B1120]/95 backdrop-blur-md flex items-center justify-center transition-transform duration-200 hover:scale-105 active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            style={{
+              boxShadow:
+                '0 10px 28px rgba(8, 145, 178, 0.35), 0 0 18px rgba(192, 132, 252, 0.25)',
+            }}
+          >
+            <PulsarLogo size={38} />
+            <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-md bg-emerald-500 text-slate-950 font-mono text-[10px] font-extrabold leading-none border border-white dark:border-[#090D16] shadow-sm">
+              AI
             </span>
-          )}
-        </button>
+          </button>
+
+          {/* Hover Tooltip */}
+          <div
+            role="tooltip"
+            className="pointer-events-none opacity-0 translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 group-focus-within:opacity-100 group-focus-within:translate-x-0 transition-all duration-150 absolute right-full mr-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-slate-900 text-white dark:bg-[#11182A] border border-slate-700/80 text-xs font-semibold whitespace-nowrap shadow-xl"
+          >
+            Ask Crypto Pulser AI
+            {!isProMax && (
+              <span className="ml-1.5 font-mono text-[10px] text-emerald-400 tabular-nums">
+                ({remainingBasic}/{DAILY_BASIC_LIMIT})
+              </span>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Slide-Over Assistant Drawer */}

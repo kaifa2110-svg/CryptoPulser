@@ -4,6 +4,8 @@ import {
   Bell,
   CandlestickChart,
   LineChart,
+  Maximize2,
+  Minimize2,
   Radar,
   ShieldAlert,
   Star,
@@ -57,16 +59,26 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
   const [historyPoints, setHistoryPoints] = useState<HistoryPoint[]>([]);
   const [loadingChart, setLoadingChart] = useState(false);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   useEffect(() => {
-    if (!coin) return;
+    if (!coin) {
+      setIsFullScreen(false);
+      return;
+    }
     recordLookup('Coin Detail', `${coin.name} (${coin.symbol})`);
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (isFullScreen) {
+          setIsFullScreen(false);
+        } else {
+          onClose();
+        }
+      }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [coin, onClose, recordLookup]);
+  }, [coin, isFullScreen, onClose, recordLookup]);
 
   useEffect(() => {
     if (!coin || chartMode !== 'cmc') return;
@@ -140,15 +152,21 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-sm"
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm ${
+        isFullScreen ? 'p-0' : 'p-3 sm:p-6'
+      }`}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1422] shadow-2xl"
+        className={`bg-white dark:bg-[#0E1422] shadow-2xl ${
+          isFullScreen
+            ? 'w-screen h-screen max-w-none max-h-none rounded-none border-0 flex flex-col overflow-hidden'
+            : 'w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-800'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3">
             <CoinLogo coin={coin} size="lg" />
             <div>
@@ -236,10 +254,24 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
                 onClose();
                 onInspectBubbleRadar(coin);
               }}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer whitespace-nowrap"
             >
               <Radar className="w-3.5 h-3.5 text-emerald-500" />
               <span>Bubble Radar</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsFullScreen((fs) => !fs)}
+              aria-label={isFullScreen ? 'Exit Full Screen' : 'Full Screen Chart'}
+              title={isFullScreen ? 'Exit Full Screen (Esc)' : 'Full Screen View'}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg border text-xs font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                isFullScreen
+                  ? 'border-cyan-500/60 bg-cyan-500/15 text-cyan-600 dark:text-cyan-300'
+                  : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              {isFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              <span className="hidden sm:inline">{isFullScreen ? 'Exit Full' : 'Full Screen'}</span>
             </button>
             <button
               type="button"
@@ -253,9 +285,19 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
         </div>
 
         {/* Body Layout */}
-        <div className="p-5 grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left 8 cols: Chart Switcher + Chart */}
-          <div className="lg:col-span-8 space-y-3">
+        <div
+          className={`p-5 grid grid-cols-1 lg:grid-cols-12 gap-6 ${
+            isFullScreen ? 'flex-1 min-h-0 overflow-y-auto lg:overflow-hidden' : ''
+          }`}
+        >
+          {/* Left Chart Column */}
+          <div
+            className={`space-y-3 ${
+              isFullScreen
+                ? 'lg:col-span-9 flex flex-col min-h-0 h-full'
+                : 'lg:col-span-8'
+            }`}
+          >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="inline-flex items-center rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 p-0.5">
                 <button
@@ -316,7 +358,11 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
             </div>
 
             {chartMode === 'tradingview' ? (
-              <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-950 h-[380px]">
+              <div
+                className={`rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-950 ${
+                  isFullScreen ? 'flex-1 min-h-[500px] lg:min-h-0' : 'h-[380px]'
+                }`}
+              >
                 <iframe
                   key={tvUrl}
                   src={tvUrl}
@@ -326,7 +372,11 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
                 />
               </div>
             ) : (
-              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B101C] p-4 h-[380px] flex flex-col justify-between">
+              <div
+                className={`rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B101C] p-4 flex flex-col justify-between ${
+                  isFullScreen ? 'flex-1 min-h-[500px] lg:min-h-0' : 'h-[380px]'
+                }`}
+              >
                 <div className="flex items-center justify-between text-xs">
                   <div className="text-slate-500 dark:text-slate-400">
                     {hoveredPoint ? (
@@ -350,7 +400,9 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
                 ) : (
                   <svg
                     viewBox={`0 0 ${chartW} ${chartH}`}
-                    className="w-full h-[290px] overflow-visible"
+                    className={`w-full overflow-visible ${
+                      isFullScreen ? 'flex-1 min-h-[380px] h-full' : 'h-[290px]'
+                    }`}
                     onMouseLeave={() => setHoverIdx(null)}
                     onMouseMove={(e) => {
                       if (historyPoints.length < 2) return;
@@ -437,8 +489,12 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
             )}
           </div>
 
-          {/* Right 4 cols: Full Live Stats */}
-          <div className="lg:col-span-4 space-y-4">
+          {/* Right Live Stats Column */}
+          <div
+            className={`space-y-4 ${
+              isFullScreen ? 'lg:col-span-3 lg:overflow-y-auto lg:pr-1' : 'lg:col-span-4'
+            }`}
+          >
             {/* 24h Range Bar */}
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#131B2E]">
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">

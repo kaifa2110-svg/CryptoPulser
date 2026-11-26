@@ -2,6 +2,7 @@ import React from 'react';
 import { Bookmark, Star, ArrowRight } from 'lucide-react';
 import { Coin, CurrencyCode, FxRates } from '../types/crypto';
 import { formatCompactCurrency, formatPercent, formatPrice } from '../utils/formatters';
+import { CoinLogo } from './CoinLogo';
 
 interface WatchlistViewProps {
   coins: Coin[];
@@ -102,18 +103,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
                 </td>
                 <td className="px-3">
                   <div className="flex items-center gap-2">
-                    {coin.image ? (
-                      <img
-                        src={coin.image}
-                        alt={coin.symbol}
-                        referrerPolicy="no-referrer"
-                        className="w-6 h-6 rounded-full"
-                      />
-                    ) : (
-                      <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-mono text-[10px] font-bold">
-                        {coin.symbol.slice(0, 2)}
-                      </div>
-                    )}
+                    <CoinLogo coin={coin} size="md" />
                     <span className="font-semibold text-slate-900 dark:text-slate-100">{coin.name}</span>
                     <span className="font-mono text-slate-500 dark:text-slate-400">{coin.symbol}</span>
                   </div>
