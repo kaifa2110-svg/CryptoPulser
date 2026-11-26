@@ -190,6 +190,9 @@ export interface Coin {
   shortLiq24hUsd: number;
   totalLiq24hUsd: number;
   isLiveApi?: boolean;
+  slug?: string;
+  numMarketPairs?: number;
+  cmcId?: number;
 }
 
 export interface GlobalMarketStats {
@@ -505,7 +508,14 @@ export interface MarketPairResponse {
   totalPairs: number;
   cexCount: number;
   dexCount: number;
-  source: 'live-gecko-dex' | 'dexscreener-live' | 'curated-fallback';
+  source:
+    | 'cmc-verified-live'
+    | 'cmc-pro-api'
+    | 'live-gecko-dex'
+    | 'dexscreener-live'
+    | 'curated-fallback';
+  numMarketPairs?: number;
+  cmcSlug?: string;
   updatedAt: string;
 }
 

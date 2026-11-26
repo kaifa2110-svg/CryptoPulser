@@ -236,6 +236,43 @@ export async function GET(request: Request): Promise<Response> {
     );
   }
 
+  const reqUrl = new URL(request.url, 'http://localhost');
+  const action = reqUrl.searchParams.get('action') || reqUrl.searchParams.get('type');
+
+  if (action === 'market-pairs') {
+    const slug = reqUrl.searchParams.get('slug') || '';
+    const symbol = reqUrl.searchParams.get('symbol') || '';
+    const queryParam = slug ? `slug=${encodeURIComponent(slug)}` : `symbol=${encodeURIComponent(symbol)}`;
+    try {
+      const mpRes = await fetchWithTimeout(
+        `https://pro-api.coinmarketcap.com/v1/cryptocurrency/market-pairs/latest?${queryParam}&convert=USD&limit=50`,
+        {
+          Accept: 'application/json',
+          'X-CMC_PRO_API_KEY': activeKey,
+        },
+        7000
+      );
+      if (!mpRes.ok) {
+        return jsonResponse(
+          {
+            ok: false,
+            restricted: true,
+            status: mpRes.status,
+            error: `CoinMarketCap market-pairs returned HTTP ${mpRes.status} (free plan requires Hobbyist+ tier).`,
+          },
+          200
+        );
+      }
+      const mpJson = await mpRes.json();
+      return jsonResponse({ ok: true, data: mpJson });
+    } catch (err) {
+      return jsonResponse(
+        { ok: false, restricted: true, error: err instanceof Error ? err.message : String(err) },
+        200
+      );
+    }
+  }
+
   const cacheKey = usingUserKey ? `cmc:user:${activeKey.slice(-6)}` : 'cmc:env';
   const cached = memoryCache.get(cacheKey);
   if (cached && Date.now() < cached.expiresAt) {
@@ -343,6 +380,9 @@ export async function GET(request: Request): Promise<Response> {
           dominancePct: Number(usd.market_cap_dominance) || 0,
           sparkline7d: generateSparklineFromPrice(priceUsd, change7d, rank),
           isLiveApi: true,
+          slug: String(c.slug || symbol.toLowerCase()),
+          numMarketPairs: Number(c.num_market_pairs) || 0,
+          cmcId: idNum,
         };
       })
       .filter((coin) => coin.priceUsd > 0);
