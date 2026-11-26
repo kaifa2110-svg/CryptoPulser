@@ -120,7 +120,9 @@ function getPeriodChangePct(coin: Coin, period: BubblePeriod): number {
     case 'Month':
       return m1;
     case '3 Months':
-      return m1 * 1.65 + y1 * 0.25;
+      return typeof coin.change90d === 'number' && Number.isFinite(coin.change90d)
+        ? coin.change90d
+        : m1 * 1.65 + y1 * 0.25;
     case 'Year':
       return y1;
   }

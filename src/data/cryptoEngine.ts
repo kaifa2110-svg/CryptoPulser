@@ -328,6 +328,55 @@ function hydrateCoinTelemetry(coin: Coin, index: number): Coin {
   };
 }
 
+const ALTCOIN_SEASON_EXCLUDED_SYMBOLS = new Set([
+  'BTC',
+  'USDT',
+  'USDC',
+  'FDUSD',
+  'TUSD',
+  'USDP',
+  'DAI',
+  'BUSD',
+  'PYUSD',
+  'USDE',
+  'USD1',
+  'RLUSD',
+  'USDS',
+  'SUSDE',
+  'WBTC',
+  'CBBTC',
+  'BTCB',
+  'STETH',
+  'WSTETH',
+  'WEETH',
+  'CBETH',
+  'RETH',
+  'JITOSOL',
+  'PAXG',
+  'XAUT',
+]);
+
+export function isAltcoinSeasonEligible(coin: Pick<Coin, 'symbol' | 'category'>): boolean {
+  if (coin.category === 'Stablecoin') return false;
+  return !ALTCOIN_SEASON_EXCLUDED_SYMBOLS.has(coin.symbol.toUpperCase());
+}
+
+export function getCoinChange90d(
+  coin: Pick<Coin, 'change30d' | 'change1y' | 'change90d'>
+): number {
+  if (typeof coin.change90d === 'number' && Number.isFinite(coin.change90d)) {
+    return coin.change90d;
+  }
+  const c30 = Number.isFinite(coin.change30d) ? coin.change30d : 0;
+  const c1y = Number.isFinite(coin.change1y) ? coin.change1y : c30 * 2.5;
+  const r30 = 1 + c30 / 100;
+  const r365 = 1 + c1y / 100;
+  if (r30 > 0 && r365 > 0) {
+    return (r30 * Math.pow(r365 / r30, (90 - 30) / (365 - 30)) - 1) * 100;
+  }
+  return c30 * 1.65 + (c1y - c30) * 0.18;
+}
+
 export function buildTop1000Coins(liveCoins: Coin[]): {
   coins: Coin[];
   derivedGlobal: Partial<GlobalMarketStats>;
@@ -383,15 +432,19 @@ export function buildTop1000Coins(liveCoins: Coin[]): {
 
   for (const coin of baseList) {
     coin.dominancePct = totalCap > 0 ? (coin.marketCapUsd / totalCap) * 100 : 0;
+    if (typeof coin.change90d !== 'number' || !Number.isFinite(coin.change90d)) {
+      coin.change90d = getCoinChange90d(coin);
+    }
   }
 
-  // Compute Altcoin Season Index from top 50 non-stablecoin altcoins outperforming BTC over 90d/30d
-  const btcPerf = btc?.change30d ?? 18;
-  const topAlts = baseList
-    .filter((c) => c.symbol !== 'BTC' && c.category !== 'Stablecoin')
-    .slice(0, 50);
-  const outperformers = topAlts.filter((c) => c.change30d > btcPerf).length;
-  const altcoinSeasonIndex = Math.min(98, Math.max(12, Math.round((outperformers / Math.max(1, topAlts.length)) * 100)));
+  // CoinMarketCap 90-day Altcoin Season methodology: % of top 100 non-stablecoin assets outperforming BTC over 90 days
+  const btcPerf90d = btc ? getCoinChange90d(btc) : 18;
+  const top100Alts = baseList.filter(isAltcoinSeasonEligible).slice(0, 100);
+  const outperformers = top100Alts.filter((c) => getCoinChange90d(c) > btcPerf90d).length;
+  const altcoinSeasonIndex = Math.min(
+    100,
+    Math.max(0, Math.round((outperformers / Math.max(1, top100Alts.length)) * 100))
+  );
 
   return {
     coins: baseList,

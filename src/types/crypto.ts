@@ -176,6 +176,7 @@ export interface Coin {
   change24h: number;
   change7d: number;
   change30d: number;
+  change90d?: number;
   change1y: number;
   dominancePct: number;
   sparkline7d: number[];

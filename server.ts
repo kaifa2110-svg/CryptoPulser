@@ -360,6 +360,7 @@ interface LiveCoinRecord {
   change24h: number;
   change7d: number;
   change30d: number;
+  change90d?: number;
   change1y: number;
   dominancePct: number;
   sparkline7d: number[];
@@ -386,6 +387,23 @@ function mapCoinGeckoItem(c: Record<string, unknown>, fallbackRank: number): Liv
   const priceUsd = Number(c.current_price) || 0;
   const change24h = Number(c.price_change_percentage_24h) || 0;
   const change7d = Number(c.price_change_percentage_7d_in_currency) || change24h * 1.4;
+  const change30d = Number(c.price_change_percentage_30d_in_currency) || change7d * 1.9;
+  const raw200d = Number(c.price_change_percentage_200d_in_currency);
+  const raw1y = Number(c.price_change_percentage_1y_in_currency);
+  const change1y = Number.isFinite(raw1y) ? raw1y : change7d * 4.5;
+
+  let change90d: number;
+  const r30 = 1 + change30d / 100;
+  if (Number.isFinite(raw200d) && r30 > 0 && 1 + raw200d / 100 > 0) {
+    const r200 = 1 + raw200d / 100;
+    change90d = (r30 * Math.pow(r200 / r30, (90 - 30) / (200 - 30)) - 1) * 100;
+  } else if (Number.isFinite(raw1y) && r30 > 0 && 1 + raw1y / 100 > 0) {
+    const r365 = 1 + raw1y / 100;
+    change90d = (r30 * Math.pow(r365 / r30, (90 - 30) / (365 - 30)) - 1) * 100;
+  } else {
+    change90d = change30d * 1.65 + (change1y - change30d) * 0.18;
+  }
+
   const spark = (c.sparkline_in_7d as { price?: number[] } | undefined)?.price ?? [];
   const symbol = String(c.symbol || '').toUpperCase();
   const rank = Number(c.market_cap_rank) || fallbackRank;
@@ -409,8 +427,9 @@ function mapCoinGeckoItem(c: Record<string, unknown>, fallbackRank: number): Liv
     change1h: Number(c.price_change_percentage_1h_in_currency) || change24h * 0.18,
     change24h,
     change7d,
-    change30d: Number(c.price_change_percentage_30d_in_currency) || change7d * 1.9,
-    change1y: Number(c.price_change_percentage_1y_in_currency) || change7d * 4.5,
+    change30d,
+    change90d,
+    change1y,
     dominancePct: 0,
     sparkline7d:
       spark.length > 8
@@ -449,6 +468,7 @@ async function fetchCmcListingsWithKey(apiKey: string): Promise<LiveCoinRecord[]
       const change24h = Number(usd.percent_change_24h) || 0;
       const change7d = Number(usd.percent_change_7d) || 0;
       const change30d = Number(usd.percent_change_30d) || change7d * 1.8;
+      const change90d = Number(usd.percent_change_90d) || change30d * 1.75;
       const marketCapUsd = Number(usd.market_cap) || 0;
       const volume24hUsd = Number(usd.volume_24h) || 0;
 
@@ -471,7 +491,8 @@ async function fetchCmcListingsWithKey(apiKey: string): Promise<LiveCoinRecord[]
         change24h,
         change7d,
         change30d,
-        change1y: change30d * 2.4,
+        change90d,
+        change1y: change90d * 1.8,
         dominancePct: Number(usd.market_cap_dominance) || 0,
         sparkline7d: generateSparklineFromPrice(priceUsd, change7d, rank),
         isLiveApi: true,
@@ -509,11 +530,11 @@ async function getLiveMarkets(personalCmcKey?: string) {
   if (liveCoins.length === 0) {
     const [cgPage1Res, cgPage2Res, binanceRes] = await Promise.allSettled([
       fetchJsonWithTimeout(
-        'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=true&price_change_percentage=1h,24h,7d,30d,1y',
+        'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=true&price_change_percentage=1h,24h,7d,30d,200d,1y',
         7500
       ),
       fetchJsonWithTimeout(
-        'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=2&sparkline=false&price_change_percentage=1h,24h,7d,30d,1y',
+        'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=2&sparkline=false&price_change_percentage=1h,24h,7d,30d,200d,1y',
         7500
       ),
       fetchJsonWithTimeout('https://api.binance.com/api/v3/ticker/24hr', 7000),

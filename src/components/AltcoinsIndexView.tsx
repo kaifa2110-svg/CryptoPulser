@@ -1,5 +1,6 @@
 import React from 'react';
 import { Gauge, PieChart } from 'lucide-react';
+import { getCoinChange90d, isAltcoinSeasonEligible } from '../data/cryptoEngine';
 import { Coin, CurrencyCode, FxRates, GlobalMarketStats } from '../types/crypto';
 import { formatCompactCurrency, formatPercent, formatPrice } from '../utils/formatters';
 
@@ -19,7 +20,7 @@ export const AltcoinsIndexView: React.FC<AltcoinsIndexViewProps> = ({
   onSelectCoin,
 }) => {
   const btc = coins.find((c) => c.symbol === 'BTC');
-  const btc30d = btc?.change30d ?? 18;
+  const btc90d = btc ? getCoinChange90d(btc) : 18;
   const indexVal = globalStats.altcoinSeasonIndex;
 
   const seasonLabel =
@@ -29,10 +30,12 @@ export const AltcoinsIndexView: React.FC<AltcoinsIndexViewProps> = ({
       ? 'Bitcoin Season'
       : 'Rotation / Neutral';
 
-  const topAlts = coins
-    .filter((c) => c.symbol !== 'BTC' && c.category !== 'Stablecoin')
-    .slice(0, 20)
-    .sort((a, b) => b.change30d - a.change30d);
+  const top100Alts = coins.filter(isAltcoinSeasonEligible).slice(0, 100);
+  const outperformerCount = top100Alts.filter((c) => getCoinChange90d(c) > btc90d).length;
+
+  const topDisplayAlts = [...top100Alts]
+    .sort((a, b) => getCoinChange90d(b) - getCoinChange90d(a))
+    .slice(0, 20);
 
   const stableDom = coins
     .filter((c) => c.category === 'Stablecoin')
@@ -51,13 +54,18 @@ export const AltcoinsIndexView: React.FC<AltcoinsIndexViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Altcoin Season Gauge */}
         <div className="lg:col-span-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101624] p-6 flex flex-col items-center justify-between">
-          <div className="w-full flex items-center justify-between mb-2">
-            <h2 className="font-display text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <Gauge className="w-4 h-4 text-emerald-500" />
-              <span>Altcoin Season Index</span>
-            </h2>
-            <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
-              Top 50 vs BTC
+          <div className="w-full flex items-start justify-between mb-2 gap-2">
+            <div>
+              <h2 className="font-display text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Gauge className="w-4 h-4 text-emerald-500" />
+                <span>Altcoin Season Index</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                90-Day Relative Performance
+              </p>
+            </div>
+            <span className="font-mono text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              Top {top100Alts.length || 100} vs BTC
             </span>
           </div>
 
@@ -111,7 +119,7 @@ export const AltcoinsIndexView: React.FC<AltcoinsIndexViewProps> = ({
               {seasonLabel}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Triggered when 75%+ of the top 50 non-stablecoin assets outperform Bitcoin ({formatPercent(btc30d)} benchmark).
+              Triggered when 75%+ of the top 100 non-stablecoin assets outperform Bitcoin over 90 days ({formatPercent(btc90d)} benchmark).
             </p>
           </div>
         </div>
@@ -182,9 +190,9 @@ export const AltcoinsIndexView: React.FC<AltcoinsIndexViewProps> = ({
           </div>
 
           <div className="text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 pt-3 flex items-center justify-between">
-            <span>BTC 30D Benchmark: {formatPercent(btc30d)}</span>
+            <span>BTC 90D Benchmark: {formatPercent(btc90d)}</span>
             <span className="font-mono tabular-nums">
-              {topAlts.filter((c) => c.change30d > btc30d).length} of top 20 alts beating BTC
+              {outperformerCount} of top {top100Alts.length} alts beating BTC
             </span>
           </div>
         </div>
@@ -194,18 +202,19 @@ export const AltcoinsIndexView: React.FC<AltcoinsIndexViewProps> = ({
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101624] p-5">
         <div className="mb-4">
           <h3 className="font-display text-base font-bold text-slate-900 dark:text-slate-100">
-            Top Altcoin 30-Day Relative Performance
+            Top Altcoin 90-Day Relative Performance
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Click any asset to inspect live TradingView candlestick & fundamentals
+            Top performers from the top 100 non-stablecoin assets · Click any asset to inspect live TradingView candlestick &amp; fundamentals
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {topAlts.map((coin) => {
-            const maxAbs = Math.max(100, ...topAlts.map((a) => Math.abs(a.change30d)));
-            const barWidth = Math.min(100, Math.max(6, (Math.abs(coin.change30d) / maxAbs) * 100));
-            const beatingBtc = coin.change30d > btc30d;
+          {topDisplayAlts.map((coin) => {
+            const c90 = getCoinChange90d(coin);
+            const maxAbs = Math.max(100, ...topDisplayAlts.map((a) => Math.abs(getCoinChange90d(a))));
+            const barWidth = Math.min(100, Math.max(6, (Math.abs(c90) / maxAbs) * 100));
+            const beatingBtc = c90 > btc90d;
             return (
               <button
                 key={coin.id}
@@ -231,19 +240,19 @@ export const AltcoinsIndexView: React.FC<AltcoinsIndexViewProps> = ({
                     </span>
                     <span
                       className={`font-semibold ${
-                        coin.change30d >= 0
+                        c90 >= 0
                           ? 'text-emerald-600 dark:text-emerald-400'
                           : 'text-rose-600 dark:text-rose-400'
                       }`}
                     >
-                      {formatPercent(coin.change30d)}
+                      {formatPercent(c90)}
                     </span>
                   </div>
                 </div>
                 <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                   <div
                     className={`h-full rounded-full ${
-                      coin.change30d >= 0 ? 'bg-emerald-500' : 'bg-rose-500'
+                      c90 >= 0 ? 'bg-emerald-500' : 'bg-rose-500'
                     }`}
                     style={{ width: `${barWidth}%` }}
                   />
