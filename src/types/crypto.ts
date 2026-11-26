@@ -480,3 +480,32 @@ export interface CustomSponsoredAd {
   updatedAt: string;
 }
 
+export interface MarketPairItem {
+  id: string;
+  exchangeName: string;
+  exchangeId: string;
+  exchangeLogo?: string;
+  type: 'CEX' | 'DEX';
+  pair: string;
+  baseSymbol: string;
+  targetSymbol: string;
+  priceUsd: number;
+  volume24hUsd: number;
+  volumeSharePct: number;
+  trustScore: 'high' | 'good' | 'moderate';
+  liquidityUsd?: number;
+  tradeUrl: string;
+  dexChain?: string;
+}
+
+export interface MarketPairResponse {
+  ok: boolean;
+  pairs: MarketPairItem[];
+  totalVolume24hUsd: number;
+  totalPairs: number;
+  cexCount: number;
+  dexCount: number;
+  source: 'live-gecko-dex' | 'dexscreener-live' | 'curated-fallback';
+  updatedAt: string;
+}
+

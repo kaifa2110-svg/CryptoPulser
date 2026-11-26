@@ -1064,6 +1064,7 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
       {/* Modals, Alerts & Drawers */}
       <CoinDetailModal
         coin={detailCoin}
+        allCoins={coins}
         onClose={() => setDetailCoin(null)}
         currency={currency}
         fxRates={fxRates}

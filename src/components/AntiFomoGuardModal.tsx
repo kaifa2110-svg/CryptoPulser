@@ -27,7 +27,7 @@ interface AntiFomoGuardModalProps {
 
 type InvestCurrency = 'USD' | 'PKR';
 
-interface FomoAnalysis {
+export interface FomoAnalysis {
   score: number;
   verdict:
     | 'SAFE ACCUMULATION ZONE'
@@ -49,7 +49,7 @@ interface FomoAnalysis {
 
 const QUICK_PICKS = ['BTC', 'ETH', 'SOL', 'XRP', 'PEPE', 'DOGE', 'SUI', 'BNB'];
 
-function computeFomoAnalysis(coin: Coin, allCoins: Coin[]): FomoAnalysis {
+export function computeFomoAnalysis(coin: Coin, allCoins: Coin[] = []): FomoAnalysis {
   const ch24 = coin.change24h;
   const ch7d = coin.change7d;
   const volToMcapPct =
