@@ -130,14 +130,16 @@ export function downloadCsvFile(filename: string, rows: string[][]): void {
     }
     return str;
   };
-  const csvContent = rows.map((row) => row.map(escapeCell).join(',')).join('\n');
+  const csvContent = rows.map((row) => row.map(escapeCell).join(',')).join('\r\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = filename;
+  link.setAttribute('download', filename);
+  link.style.display = 'none';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
+
