@@ -3,6 +3,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
+import { GET as handleCmcRoute } from './api/cmc.ts';
 
 dotenv.config();
 
@@ -135,8 +136,24 @@ const CATEGORY_MAP: Record<string, string> = {
   ondo: 'RWA',
 };
 
-function inferCategory(symbol: string, rank: number): string {
+function inferCategory(symbol: string, rank: number, tags?: unknown): string {
   const sym = symbol.toLowerCase();
+  if (Array.isArray(tags)) {
+    const tagSet = new Set(tags.map((t) => String(t).toLowerCase()));
+    if (tagSet.has('stablecoin') || tagSet.has('usd-stablecoin') || tagSet.has('fiat-stablecoin')) {
+      return 'Stablecoin';
+    }
+    if (tagSet.has('real-world-assets') || tagSet.has('rwa')) return 'RWA';
+    if (tagSet.has('memes') || tagSet.has('meme')) return 'Meme';
+    if (tagSet.has('ai-big-data') || tagSet.has('generative-ai')) return 'AI & Compute';
+    if (tagSet.has('layer-2') || tagSet.has('zero-knowledge-proofs') || tagSet.has('rollup')) {
+      return 'Layer 2';
+    }
+    if (tagSet.has('defi') || tagSet.has('decentralized-exchange-dex-token')) return 'DeFi';
+    if (tagSet.has('gaming') || tagSet.has('play-to-earn') || tagSet.has('metaverse')) return 'Gaming';
+    if (tagSet.has('oracles')) return 'Oracle';
+    if (tagSet.has('layer-1')) return 'Layer 1';
+  }
   if (CATEGORY_MAP[sym]) return CATEGORY_MAP[sym];
   const categories = ['DeFi', 'Layer 2', 'AI & Compute', 'RWA', 'Gaming', 'Infrastructure', 'Layer 1'];
   return categories[rank % categories.length];
@@ -464,11 +481,17 @@ async function fetchCmcListingsWithKey(apiKey: string): Promise<LiveCoinRecord[]
       const rank = Number(c.cmc_rank) || idx + 1;
       const usd = ((c.quote as Record<string, Record<string, unknown>> | undefined)?.USD) || {};
       const priceUsd = Number(usd.price) || 0;
-      const change1h = Number(usd.percent_change_1h) || 0;
-      const change24h = Number(usd.percent_change_24h) || 0;
-      const change7d = Number(usd.percent_change_7d) || 0;
-      const change30d = Number(usd.percent_change_30d) || change7d * 1.8;
-      const change90d = Number(usd.percent_change_90d) || change30d * 1.75;
+      const change1h = Number.isFinite(Number(usd.percent_change_1h)) ? Number(usd.percent_change_1h) : 0;
+      const change24h = Number.isFinite(Number(usd.percent_change_24h)) ? Number(usd.percent_change_24h) : 0;
+      const change7d = Number.isFinite(Number(usd.percent_change_7d)) ? Number(usd.percent_change_7d) : 0;
+      const change30d = Number.isFinite(Number(usd.percent_change_30d))
+        ? Number(usd.percent_change_30d)
+        : change7d * 1.8;
+      const hasExact90d =
+        usd.percent_change_90d !== null &&
+        usd.percent_change_90d !== undefined &&
+        Number.isFinite(Number(usd.percent_change_90d));
+      const change90d = hasExact90d ? Number(usd.percent_change_90d) : change30d * 1.75;
       const marketCapUsd = Number(usd.market_cap) || 0;
       const volume24hUsd = Number(usd.volume_24h) || 0;
 
@@ -478,7 +501,7 @@ async function fetchCmcListingsWithKey(apiKey: string): Promise<LiveCoinRecord[]
         symbol,
         name: String(c.name || symbol),
         image: `https://s2.coinmarketcap.com/static/img/coins/64x64/${idNum}.png`,
-        category: inferCategory(symbol, rank),
+        category: inferCategory(symbol, rank, c.tags),
         priceUsd,
         marketCapUsd,
         fdvUsd: Number(usd.fully_diluted_market_cap) || marketCapUsd * 1.15,
@@ -504,8 +527,14 @@ async function fetchCmcListingsWithKey(apiKey: string): Promise<LiveCoinRecord[]
 }
 
 async function getLiveMarkets(personalCmcKey?: string) {
-  const cleanKey = (personalCmcKey || '').trim();
-  const cacheKey = cleanKey ? `markets:cmc:${cleanKey.slice(-6)}` : 'markets:public';
+  const cleanUserKey = (personalCmcKey || '').trim();
+  const envCmcKey = (process.env.CMC_API_KEY || '').trim();
+  const cleanKey = cleanUserKey || (envCmcKey !== 'MY_CMC_API_KEY' ? envCmcKey : '');
+  const cacheKey = cleanUserKey
+    ? `markets:cmc:user:${cleanUserKey.slice(-6)}`
+    : cleanKey
+    ? 'markets:cmc:env'
+    : 'markets:public';
   const cached = getCached<{
     coins: LiveCoinRecord[];
     global: unknown;
@@ -517,12 +546,12 @@ async function getLiveMarkets(personalCmcKey?: string) {
   let liveCoins: LiveCoinRecord[] = [];
   let source = 'fallback';
 
-  // 1. Optional user-provided personal CoinMarketCap API Key (up to 1,000 real coins)
+  // 1. Optional user-provided or server env CoinMarketCap API Key (up to 1,000 real coins)
   if (cleanKey) {
     const cmcCoins = await fetchCmcListingsWithKey(cleanKey);
     if (cmcCoins && cmcCoins.length > 0) {
       liveCoins = cmcCoins;
-      source = 'coinmarketcap-personal-live';
+      source = cleanUserKey ? 'coinmarketcap-personal-live' : 'coinmarketcap-pro-live';
     }
   }
 
@@ -858,6 +887,33 @@ async function startServer() {
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true, timestamp: new Date().toISOString() });
+  });
+
+  app.get('/api/cmc', async (req, res) => {
+    try {
+      const headers = new Headers();
+      const userKey = req.headers['x-user-cmc-key'];
+      const fallbackKey = req.headers['x-cmc-api-key'];
+      if (typeof userKey === 'string' && userKey.trim()) {
+        headers.set('x-user-cmc-key', userKey.trim());
+      } else if (typeof fallbackKey === 'string' && fallbackKey.trim()) {
+        headers.set('x-user-cmc-key', fallbackKey.trim());
+      }
+      const webReq = new Request(`http://localhost:${PORT}/api/cmc`, {
+        method: 'GET',
+        headers,
+      });
+      const webRes = await handleCmcRoute(webReq);
+      const bodyText = await webRes.text();
+      res.status(webRes.status);
+      const cacheControl = webRes.headers.get('Cache-Control');
+      if (cacheControl) res.setHeader('Cache-Control', cacheControl);
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.send(bodyText);
+    } catch (err) {
+      console.error('[CMC Proxy Route] Error:', err instanceof Error ? err.message : String(err));
+      res.status(500).json({ ok: false, fallbackRequired: true, error: 'Failed to proxy CMC Pro API.' });
+    }
   });
 
   app.get('/api/markets', async (req, res) => {

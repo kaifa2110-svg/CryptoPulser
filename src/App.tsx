@@ -273,16 +273,55 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
   const fetchMarkets = useCallback(async (manual = false) => {
     if (manual) setIsRefreshing(true);
     try {
-      const headers: Record<string, string> = {};
-      if (cmcApiKey && cmcApiKey.trim()) {
-        headers['x-cmc-api-key'] = cmcApiKey.trim();
+      const trimmedUserKey = cmcApiKey && cmcApiKey.trim() ? cmcApiKey.trim() : '';
+      let data: {
+        ok?: boolean;
+        coins?: Coin[];
+        fxRates?: FxRates;
+        global?: Partial<GlobalMarketStats>;
+        source?: string;
+        updatedAt?: string;
+      } | null = null;
+
+      // 1. Primary endpoint: CoinMarketCap Pro proxy (/api/cmc)
+      try {
+        const cmcHeaders: Record<string, string> = {};
+        if (trimmedUserKey) {
+          cmcHeaders['x-user-cmc-key'] = trimmedUserKey;
+        }
+        const cmcRes = await fetch('/api/cmc', { headers: cmcHeaders });
+        if (cmcRes.ok) {
+          const cmcJson = await cmcRes.json();
+          if (
+            cmcJson?.ok !== false &&
+            Array.isArray(cmcJson?.coins) &&
+            cmcJson.coins.length > 0
+          ) {
+            data = cmcJson;
+          }
+        }
+      } catch {
+        // Fall through to /api/markets public endpoint
       }
-      const res = await fetch('/api/markets', { headers });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data?.coins)) setLiveCoinsRaw(data.coins);
-        if (data?.fxRates) setFxRates(data.fxRates);
-        if (data?.global) {
+
+      // 2. Fallback endpoint: /api/markets (CoinGecko + Binance + personal/env CMC)
+      if (!data) {
+        const fallbackHeaders: Record<string, string> = {};
+        if (trimmedUserKey) {
+          fallbackHeaders['x-cmc-api-key'] = trimmedUserKey;
+        }
+        const res = await fetch('/api/markets', { headers: fallbackHeaders });
+        if (res.ok) {
+          data = await res.json();
+        }
+      }
+
+      if (data) {
+        if (Array.isArray(data.coins) && data.coins.length > 0) {
+          setLiveCoinsRaw(data.coins);
+        }
+        if (data.fxRates) setFxRates(data.fxRates);
+        if (data.global) {
           setServerGlobal({
             ...data.global,
             source: data.source,
