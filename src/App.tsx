@@ -834,9 +834,9 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
             {marketSubTab === 'global-exchanges' && (
               <GlobalExchangesView
                 coins={coins}
+                globalStats={globalStats}
                 currency={currency}
                 fxRates={fxRates}
-                totalMarketVol24hUsd={globalStats.totalVolume24hUsd}
               />
             )}
 
@@ -921,6 +921,15 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
             currency={currency}
             fxRates={fxRates}
             onSelectCoin={setDetailCoin}
+          />
+        )}
+
+        {activeTab === 'global-exchanges' && (
+          <GlobalExchangesView
+            coins={coins}
+            globalStats={globalStats}
+            currency={currency}
+            fxRates={fxRates}
           />
         )}
 

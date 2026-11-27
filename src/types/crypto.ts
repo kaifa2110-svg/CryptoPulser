@@ -33,6 +33,7 @@ export type NavTab =
   | 'news'
   | 'bubble-radar'
   | 'whale-sonar'
+  | 'global-exchanges'
   | 'pulser-square';
 
 export type MarketSubTab =
