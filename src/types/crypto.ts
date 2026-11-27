@@ -43,6 +43,7 @@ export type MarketSubTab =
   | 'yield'
   | 'technical-indicators'
   | 'dex-scan'
+  | 'global-exchanges'
   | 'whale-sonar';
 
 export type BlockchainNetwork =

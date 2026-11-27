@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   BarChart3,
+  Building2,
   Coins as CoinsIcon,
   Flame,
   Gauge,
@@ -23,6 +24,7 @@ import { DerivativesView } from './components/DerivativesView';
 import { DexScanView } from './components/DexScanView';
 import { EtfTrackerView } from './components/EtfTrackerView';
 import { GainersLosersView } from './components/GainersLosersView';
+import { GlobalExchangesView } from './components/GlobalExchangesView';
 import { InvestmentSimulator } from './components/InvestmentSimulator';
 import { IpoLaunchpadView } from './components/IpoLaunchpadView';
 import { LiquidityMapView } from './components/LiquidityMapView';
@@ -695,6 +697,11 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
                       icon: <Radar className="w-3.5 h-3.5" />,
                     },
                     {
+                      id: 'global-exchanges',
+                      label: 'Global Exchanges',
+                      icon: <Building2 className="w-3.5 h-3.5" />,
+                    },
+                    {
                       id: 'whale-sonar',
                       label: 'Whale Sonar',
                       pro: true,
@@ -821,6 +828,15 @@ const CryptoPulserApp: React.FC<InnerAppProps> = ({
                 currency={currency}
                 fxRates={fxRates}
                 onSelectCoin={setDetailCoin}
+              />
+            )}
+
+            {marketSubTab === 'global-exchanges' && (
+              <GlobalExchangesView
+                coins={coins}
+                currency={currency}
+                fxRates={fxRates}
+                totalMarketVol24hUsd={globalStats.totalVolume24hUsd}
               />
             )}
 
