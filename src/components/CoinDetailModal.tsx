@@ -30,6 +30,7 @@ import {
 import { computeFomoAnalysis } from './AntiFomoGuardModal';
 import { CoinLogo } from './CoinLogo';
 import { CoinMarketsTab } from './CoinMarketsTab';
+import { ProCandlestickChart } from './ProCandlestickChart';
 
 interface CoinDetailModalProps {
   coin: Coin | null;
@@ -49,6 +50,36 @@ interface CoinDetailModalProps {
 type ModalTab = 'overview' | 'markets' | 'anti_fomo' | 'ai';
 type ChartMode = 'tradingview' | 'cmc';
 type CmcRange = '7' | '30' | '90' | '365';
+
+const VERIFIED_TV_CRYPTO_ONLY = new Set([
+  'USDT', 'USDC', 'DAI', 'OKB', 'XMR', 'KAS', 'CORE', 'CRO',
+  'MATIC', 'FTM', 'EOS', 'OMG', 'AKT',
+]);
+
+const VERIFIED_TV_BINANCE = new Set([
+  'BTC', 'ETH', 'XRP', 'BNB', 'SOL', 'DOGE', 'ADA', 'TRX', 'AVAX', 'SHIB',
+  'TON', 'LINK', 'DOT', 'BCH', 'NEAR', 'POL', 'LTC', 'UNI', 'ICP', 'APT',
+  'ETC', 'RENDER', 'FET', 'SUI', 'PEPE', 'ARB', 'OP', 'ATOM', 'XLM', 'FIL',
+  'IMX', 'INJ', 'HBAR', 'VET', 'MKR', 'GRT', 'RUNE', 'ALGO', 'AAVE', 'TIA',
+  'SEI', 'JUP', 'WIF', 'BONK', 'FLOKI', 'GALA', 'SAND', 'MANA', 'AXS', 'THETA',
+  'EGLD', 'FLOW', 'QNT', 'CHZ', 'XTZ', 'NEO', 'KAVA', 'ZEC', 'DASH', 'COMP',
+  'SNX', 'CRV', '1INCH', 'ENJ', 'BAT', 'ZRX', 'WLD', 'STRK', 'PYTH', 'JTO',
+  'ONDO', 'ENA', 'W', 'PENDLE', 'AR', 'JASMY', 'BOME', 'NOT', 'IO', 'ZK',
+  'ZRO', 'EIGEN', 'TAO', 'STX', 'LDO', 'ENS', 'DYDX', 'GMX', 'CAKE', 'ORDI',
+  'PAXG', 'S', 'TRUMP', 'PENGU',
+]);
+
+function resolveTradingViewSymbol(symbol?: string): { supported: boolean; tvSymbol: string } {
+  const sym = (symbol || '').trim().toUpperCase();
+  if (!sym) return { supported: false, tvSymbol: '' };
+  if (VERIFIED_TV_CRYPTO_ONLY.has(sym)) {
+    return { supported: true, tvSymbol: `CRYPTO:${sym}USD` };
+  }
+  if (VERIFIED_TV_BINANCE.has(sym)) {
+    return { supported: true, tvSymbol: `BINANCE:${sym}USDT` };
+  }
+  return { supported: false, tvSymbol: '' };
+}
 
 export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
   coin,
@@ -128,16 +159,19 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
     };
   }, [coin, chartMode, cmcRange]);
 
+  const tvSymbolInfo = useMemo(() => {
+    return resolveTradingViewSymbol(coin?.symbol);
+  }, [coin?.symbol]);
+
   const tvUrl = useMemo(() => {
-    if (!coin) return '';
-    const tvSymbol = `CRYPTO:${coin.symbol.toUpperCase()}USD`;
+    if (!coin || !tvSymbolInfo.supported) return '';
     const theme = isDark ? 'dark' : 'light';
     return `https://s.tradingview.com/widgetembed/?frameElementId=tv_chart&symbol=${encodeURIComponent(
-      tvSymbol
+      tvSymbolInfo.tvSymbol
     )}&interval=60&hidesidetoolbar=0&symboledit=1&saveimage=0&toolbarbg=${
       isDark ? '0f172a' : 'f8fafc'
     }&studies=[]&theme=${theme}&style=1&timezone=Etc%2FUTC&withdateranges=1`;
-  }, [coin, isDark]);
+  }, [coin, tvSymbolInfo, isDark]);
 
   const fomoAnalysis = useMemo(() => {
     if (!coin) return null;
@@ -419,7 +453,7 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
                       }`}
                     >
                       <CandlestickChart className="w-3.5 h-3.5" />
-                      <span>TradingView Candlestick</span>
+                      <span>Pro Candlestick</span>
                     </button>
                     <button
                       type="button"
@@ -436,9 +470,16 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
                   </div>
 
                   {chartMode === 'tradingview' ? (
-                    <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                      Symbol: CRYPTO:{coin.symbol.toUpperCase()}USD
-                    </span>
+                    tvSymbolInfo.supported ? (
+                      <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                        TradingView: {tvSymbolInfo.tvSymbol}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Live OHLC · {coin.symbol.toUpperCase()}/USD (CMC Anchored)
+                      </span>
+                    )
                   ) : (
                     <div className="inline-flex items-center rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 p-0.5">
                       {(
@@ -467,19 +508,29 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
                 </div>
 
                 {chartMode === 'tradingview' ? (
-                  <div
-                    className={`rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-950 ${
-                      isFullScreen ? 'flex-1 min-h-[500px] lg:min-h-0' : 'h-[380px]'
-                    }`}
-                  >
-                    <iframe
-                      key={tvUrl}
-                      src={tvUrl}
-                      title={`TradingView ${coin.symbol} Candlestick Chart`}
-                      className="w-full h-full border-0"
-                      allowFullScreen
+                  tvSymbolInfo.supported ? (
+                    <div
+                      className={`rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-950 ${
+                        isFullScreen ? 'flex-1 min-h-[500px] lg:min-h-0' : 'h-[380px]'
+                      }`}
+                    >
+                      <iframe
+                        key={tvUrl}
+                        src={tvUrl}
+                        title={`TradingView ${coin.symbol} Candlestick Chart`}
+                        className="w-full h-full border-0"
+                        allowFullScreen
+                      />
+                    </div>
+                  ) : (
+                    <ProCandlestickChart
+                      coin={coin}
+                      currency={currency}
+                      fxRates={fxRates}
+                      isDark={isDark}
+                      isFullScreen={isFullScreen}
                     />
-                  </div>
+                  )
                 ) : (
                   <div
                     className={`rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B101C] p-4 flex flex-col justify-between ${
