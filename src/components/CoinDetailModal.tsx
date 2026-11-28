@@ -30,7 +30,7 @@ import {
 import { computeFomoAnalysis } from './AntiFomoGuardModal';
 import { CoinLogo } from './CoinLogo';
 import { CoinMarketsTab } from './CoinMarketsTab';
-import { ProCandlestickChart } from './ProCandlestickChart';
+import { TradingViewAdvancedChart } from './TradingViewAdvancedChart';
 
 interface CoinDetailModalProps {
   coin: Coin | null;
@@ -51,34 +51,20 @@ type ModalTab = 'overview' | 'markets' | 'anti_fomo' | 'ai';
 type ChartMode = 'tradingview' | 'cmc';
 type CmcRange = '7' | '30' | '90' | '365';
 
-const VERIFIED_TV_CRYPTO_ONLY = new Set([
-  'USDT', 'USDC', 'DAI', 'OKB', 'XMR', 'KAS', 'CORE', 'CRO',
-  'MATIC', 'FTM', 'EOS', 'OMG', 'AKT',
+const TV_EXCHANGES = ['BINANCE', 'MEXC', 'GATEIO', 'BYBIT', 'KUCOIN', 'OKX', 'UNISWAP'] as const;
+type TvExchange = (typeof TV_EXCHANGES)[number];
+
+const BINANCE_MAJOR_SYMBOLS = new Set([
+  'BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'TON',
+  'LINK', 'PEPE', 'RED', 'APT', 'ARB', 'OP', 'INJ', 'RENDER', 'FET', 'NEAR',
+  'DOT', 'TRX', 'SHIB', 'LTC', 'UNI', 'ATOM', 'XLM', 'FIL', 'HBAR', 'VET',
+  'MKR', 'AAVE', 'TIA', 'SEI', 'JUP', 'WIF', 'BONK', 'ONDO', 'ENA', 'WLD',
+  'STRK',
 ]);
 
-const VERIFIED_TV_BINANCE = new Set([
-  'BTC', 'ETH', 'XRP', 'BNB', 'SOL', 'DOGE', 'ADA', 'TRX', 'AVAX', 'SHIB',
-  'TON', 'LINK', 'DOT', 'BCH', 'NEAR', 'POL', 'LTC', 'UNI', 'ICP', 'APT',
-  'ETC', 'RENDER', 'FET', 'SUI', 'PEPE', 'ARB', 'OP', 'ATOM', 'XLM', 'FIL',
-  'IMX', 'INJ', 'HBAR', 'VET', 'MKR', 'GRT', 'RUNE', 'ALGO', 'AAVE', 'TIA',
-  'SEI', 'JUP', 'WIF', 'BONK', 'FLOKI', 'GALA', 'SAND', 'MANA', 'AXS', 'THETA',
-  'EGLD', 'FLOW', 'QNT', 'CHZ', 'XTZ', 'NEO', 'KAVA', 'ZEC', 'DASH', 'COMP',
-  'SNX', 'CRV', '1INCH', 'ENJ', 'BAT', 'ZRX', 'WLD', 'STRK', 'PYTH', 'JTO',
-  'ONDO', 'ENA', 'W', 'PENDLE', 'AR', 'JASMY', 'BOME', 'NOT', 'IO', 'ZK',
-  'ZRO', 'EIGEN', 'TAO', 'STX', 'LDO', 'ENS', 'DYDX', 'GMX', 'CAKE', 'ORDI',
-  'PAXG', 'S', 'TRUMP', 'PENGU',
-]);
-
-function resolveTradingViewSymbol(symbol?: string): { supported: boolean; tvSymbol: string } {
+function getDefaultTvExchange(symbol?: string): TvExchange {
   const sym = (symbol || '').trim().toUpperCase();
-  if (!sym) return { supported: false, tvSymbol: '' };
-  if (VERIFIED_TV_CRYPTO_ONLY.has(sym)) {
-    return { supported: true, tvSymbol: `CRYPTO:${sym}USD` };
-  }
-  if (VERIFIED_TV_BINANCE.has(sym)) {
-    return { supported: true, tvSymbol: `BINANCE:${sym}USDT` };
-  }
-  return { supported: false, tvSymbol: '' };
+  return BINANCE_MAJOR_SYMBOLS.has(sym) ? 'BINANCE' : 'MEXC';
 }
 
 export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
@@ -103,9 +89,10 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
   const [loadingChart, setLoadingChart] = useState(false);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [tvExchange, setTvExchange] = useState<TvExchange>(() => getDefaultTvExchange(coin?.symbol));
   const prevCoinIdRef = React.useRef<string | null>(null);
 
-  // Reset tab to overview ONLY when switching to a DIFFERENT coin
+  // Reset tab to overview and resolve default exchange ONLY when switching to a DIFFERENT coin
   const coinId = coin?.id;
   useEffect(() => {
     if (!coinId) {
@@ -116,6 +103,7 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
     if (prevCoinIdRef.current !== coinId) {
       prevCoinIdRef.current = coinId;
       setActiveTab('overview');
+      setTvExchange(getDefaultTvExchange(coin?.symbol));
       if (coin) {
         recordLookup('Coin Detail', `${coin.name} (${coin.symbol})`);
       }
@@ -159,19 +147,12 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
     };
   }, [coin, chartMode, cmcRange]);
 
-  const tvSymbolInfo = useMemo(() => {
-    return resolveTradingViewSymbol(coin?.symbol);
-  }, [coin?.symbol]);
-
-  const tvUrl = useMemo(() => {
-    if (!coin || !tvSymbolInfo.supported) return '';
-    const theme = isDark ? 'dark' : 'light';
-    return `https://s.tradingview.com/widgetembed/?frameElementId=tv_chart&symbol=${encodeURIComponent(
-      tvSymbolInfo.tvSymbol
-    )}&interval=60&hidesidetoolbar=0&symboledit=1&saveimage=0&toolbarbg=${
-      isDark ? '0f172a' : 'f8fafc'
-    }&studies=[]&theme=${theme}&style=1&timezone=Etc%2FUTC&withdateranges=1`;
-  }, [coin, tvSymbolInfo, isDark]);
+  const activeTvSymbol = useMemo(() => {
+    if (!coin) return '';
+    const sym = coin.symbol.trim().toUpperCase();
+    const quote = sym === 'USDT' ? 'USD' : 'USDT';
+    return `${tvExchange}:${sym}${quote}`;
+  }, [coin, tvExchange]);
 
   const fomoAnalysis = useMemo(() => {
     if (!coin) return null;
@@ -470,16 +451,34 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
                   </div>
 
                   {chartMode === 'tradingview' ? (
-                    tvSymbolInfo.supported ? (
-                      <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                        TradingView: {tvSymbolInfo.tvSymbol}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-mono font-semibold text-slate-600 dark:text-slate-300">
+                        {activeTvSymbol}
                       </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Live OHLC · {coin.symbol.toUpperCase()}/USD (CMC Anchored)
-                      </span>
-                    )
+                      <div
+                        className="inline-flex flex-wrap items-center gap-1"
+                        role="group"
+                        aria-label="TradingView exchange feed"
+                      >
+                        {TV_EXCHANGES.map((ex) => {
+                          const active = tvExchange === ex;
+                          return (
+                            <button
+                              key={ex}
+                              type="button"
+                              onClick={() => setTvExchange(ex)}
+                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold border transition-colors cursor-pointer ${
+                                active
+                                  ? 'bg-cyan-500/20 border-cyan-500/60 text-cyan-600 dark:text-cyan-300'
+                                  : 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
+                              }`}
+                            >
+                              {ex}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   ) : (
                     <div className="inline-flex items-center rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 p-0.5">
                       {(
@@ -508,29 +507,12 @@ export const CoinDetailModal: React.FC<CoinDetailModalProps> = ({
                 </div>
 
                 {chartMode === 'tradingview' ? (
-                  tvSymbolInfo.supported ? (
-                    <div
-                      className={`rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-950 ${
-                        isFullScreen ? 'flex-1 min-h-[500px] lg:min-h-0' : 'h-[380px]'
-                      }`}
-                    >
-                      <iframe
-                        key={tvUrl}
-                        src={tvUrl}
-                        title={`TradingView ${coin.symbol} Candlestick Chart`}
-                        className="w-full h-full border-0"
-                        allowFullScreen
-                      />
-                    </div>
-                  ) : (
-                    <ProCandlestickChart
-                      coin={coin}
-                      currency={currency}
-                      fxRates={fxRates}
-                      isDark={isDark}
-                      isFullScreen={isFullScreen}
-                    />
-                  )
+                  <TradingViewAdvancedChart
+                    tvSymbol={activeTvSymbol}
+                    coinSymbol={coin.symbol}
+                    isDark={isDark}
+                    isFullScreen={isFullScreen}
+                  />
                 ) : (
                   <div
                     className={`rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B101C] p-4 flex flex-col justify-between ${
